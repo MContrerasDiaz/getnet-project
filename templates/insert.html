@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <title>Detalle de Sucursal</title>
+    <style>
+        body {
+            background-color: rgb(84, 98, 117);
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 350px;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 20px;
+            position: relative;
+            margin-top: 5%;
+        }
+        h1 {
+            font-size: 28px;
+            color: #007bff;
+            font-weight: 600;
+            letter-spacing: -1px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            padding-left: 30px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group-button{
+            margin-top: 15px;
+        }
+        label {
+            left: 10px;
+            top: 15px;
+            color: grey;
+            font-size: 15px;
+            cursor: text;
+            transition: 0.3s ease;
+            font-weight: bold;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0 10px 0;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+        }
+        .button {
+            border: none;
+            outline: none;
+            background-color: royalblue;
+            padding: 10px;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 16px;
+            transition: .3s ease;
+            margin: 5px;
+            width: calc(50% - 10px);
+            height: 40px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+        .button-container {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+            margin-bottom: 30px;
+        }
+        .btn-red {
+            background-color: #dc3545;
+            color: white;
+        }
+        .btn-red:hover {
+            background-color: #c82333;
+        }
+        .dropdown-content {
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+            position: absolute;
+            background-color: #f9f9f9;
+            min-width: 160px;
+            box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
+            z-index: 1;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .dropdown-content li {
+            padding: 12px 16px;
+            cursor: pointer;
+            text-align: left;
+        }
+        .dropdown-content li:hover {
+            background-color: #f1f1f1;
+        }
+        .flex {
+            display: flex;
+            width: 100%;
+            gap: 6px;
+        }
+        .shadow-effect {
+            border: none;
+            color: white;
+            padding: 14px 28px;
+            cursor: pointer;
+            border-radius: 5px;
+            background-color: #007bff;
+            transition: box-shadow 0.3s ease-in-out;
+        }
+        .shadow-effect:hover {
+            box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.3);
+        }
+        .primary {
+            color: white;
+            text-decoration: none;
+            background-image: linear-gradient(to right, #007bff, #4ab2e2);
+        }
+        .primary:hover {
+            color: white;
+            text-decoration: none;
+            background-image: linear-gradient(to right, #0b7dda, #4ab2e2);
+        }
+        .success {
+            color: white;
+            text-decoration: none;
+            background-image: linear-gradient(to right, #28a745, #56c150);
+        }
+        .success:hover {
+            color: white;
+            text-decoration: none;
+            background-image: linear-gradient(to right, #34b556, #56c150);
+        }
+        .warning {
+            color: white;
+            text-decoration: none;
+            background-image: linear-gradient(to right, #ffc107, #ffda4e);
+        }
+        .warning:hover {
+            color: white;
+            text-decoration: none;
+            background-image: linear-gradient(to right, #ffb200, #ffda4e);
+        }
+        .danger {
+            color: white;
+            text-decoration: none;
+            background-image: linear-gradient(to right, #dc3545, #e0666e);
+        }
+        .danger:hover {
+            color: white;
+            text-decoration: none;
+            background-image: linear-gradient(to right, #d32838, #e0666e);
+        }
+        .ocultar {
+            display: none;
+        }
+        .id_update {
+            font-size: 15px;
+            font-weight: 600;
+            color: black;
+        }
+    </style>
+    </head>
+    <body>
+    <div class="container">
+        <h1>Detalle de Sucursal</h1>
+        <form id="detalleForm" method="post">
+            <div class="form-group">
+                <label for="serial">Serial Terminal:</label>
+                <input type="text" id="serial" name="serial">
+            </div>
+            <div class="form-group">
+                <label for="id_terminal_getnet">ID Terminal Getnet:</label>
+                <input type="text" id="id_terminal_getnet" name="id_terminal_getnet">
+            </div>
+            <div class="form-group">
+                <label for="id_sucursal_getnet">ID Sucursal Getnet:</label>
+                <input type="text" id="id_sucursal_getnet" name="id_sucursal_getnet">
+            </div>
+            <div class="flex">
+                <div class="dropdown">
+                    <div class="form-group">
+                        <label for="sucursal">Sucursal:</label>
+                        <input type="text" id="sucursal" name="sucursal" oninput="filtrarOpciones('sucursal', 'miDropdown')" onfocus="mostrarOpciones('miDropdown')" placeholder="Sucursales">
+                        <ul id="miDropdown" class="dropdown-content">
+                            {% for sucursal in sucursales %}
+                            <li onclick="seleccionarOpcion('sucursal', '{{ sucursal }}'); actualizarCajas('{{ sucursal }}')">{{ sucursal }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+                <div class="dropdown">
+                    <div class="form-group">
+                        <label for="caja">Cajas:</label>
+                        <input type="text" id="caja" name="caja" oninput="filtrarOpciones('caja', 'miDropdownCaja')" onfocus="mostrarOpciones('miDropdownCaja')" placeholder="Cajas">
+                        <ul id="miDropdownCaja" class="dropdown-content">
+                            {% for caja in cajas %}
+                            <li onclick="seleccionarOpcion('caja', '{{ caja }}')">{{ caja }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="button-container">
+                <button type="submit" formaction="{{ url_for('insertar') }}" class="button shadow-effect primary">Guardar</button>
+            </div>
+        </form>
+        <form id="formRegresar" action="{{ url_for('index') }}" method="get">
+            <button type="submit" class="button shadow-effect success">Volver</button>
+        </form>
+    </div>
+
+        <script>
+
+        function mostrarOpciones(dropdownId) {
+            const dropdown = document.getElementById(dropdownId);
+            dropdown.style.display = 'block';
+        }
+
+        function filtrarOpciones(inputId, dropdownId) {
+            const input = document.getElementById(inputId);
+            const filter = input.value.toUpperCase();
+            const dropdown = document.getElementById(dropdownId);
+            const items = dropdown.getElementsByTagName("li");
+
+            for (let i = 0; i < items.length; i++) {
+                const txtValue = items[i].textContent || items[i].innerText;
+                items[i].style.display = txtValue.toUpperCase().indexOf(filter) > -1 ? "" : "none";
+            }
+            dropdown.style.display = 'block';
+        }
+
+        function seleccionarOpcion(inputId, valor) {
+            const input = document.getElementById(inputId);
+            input.value = valor;
+
+            const dropdown = document.getElementById(inputId).parentElement.querySelector('.dropdown-content');
+            dropdown.style.display = 'none';
+        }
+
+        function actualizarCajas(sucursal) {
+            console.log(`Actualizando cajas para la sucursal: ${sucursal}`);
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/actualizar_cajas');
+            xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    const response = JSON.parse(xhr.responseText);
+                    console.log(`Respuesta del servidor: ${xhr.responseText}`);
+                    const miDropdownCaja = document.getElementById('miDropdownCaja');
+                    miDropdownCaja.innerHTML = '';
+
+                    response.cajas.forEach(function(caja) {
+                        const li = document.createElement('li');
+                        li.textContent = caja;
+                        li.onclick = function() {
+                            seleccionarOpcion('caja', caja);
+                        };
+                        miDropdownCaja.appendChild(li);
+                    });
+                } else if (xhr.readyState === 4) {
+                    console.log(`Error en la solicitud: ${xhr.status} - ${xhr.responseText}`);
+                }
+            };
+            xhr.send(JSON.stringify({ sucursal: sucursal }));
+        }
+
+        function mostrarOpciones(dropdownId) {
+            const dropdown = document.getElementById(dropdownId);
+            dropdown.style.display = 'block';
+        }
+
+        function filtrarOpciones(inputId, dropdownId) {
+            const input = document.getElementById(inputId);
+            const filter = input.value.toUpperCase();
+            const dropdown = document.getElementById(dropdownId);
+            const items = dropdown.getElementsByTagName("li");
+
+            for (let i = 0; i < items.length; i++) {
+                const txtValue = items[i].textContent || items[i].innerText;
+                items[i].style.display = txtValue.toUpperCase().indexOf(filter) > -1 ? "" : "none";
+            }
+            dropdown.style.display = 'block';
+        }
+
+        function seleccionarOpcion(inputId, valor) {
+        const input = document.getElementById(inputId);
+        input.value = valor;
+
+        const dropdown = document.getElementById(inputId).parentElement.querySelector('.dropdown-content');
+        dropdown.style.display = 'none';
+
+        if (inputId === 'sucursal') {
+            document.getElementById('caja').value = '';
+        }
+    }
+
+        document.addEventListener('click', function(event) {
+            const dropdowns = document.querySelectorAll('.dropdown-content');
+            dropdowns.forEach(dropdown => {
+                if (!dropdown.parentElement.contains(event.target)) {
+                    dropdown.style.display = 'none';
+                }
+            });
+        });
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Tab' || event.key === 'Escape') {
+                const dropdowns = document.querySelectorAll('.dropdown-content');
+                dropdowns.forEach(dropdown => {
+                    dropdown.style.display = 'none';
+                });
+            }
+        
+        });
+        </script>
+        </body>
+        </html>
