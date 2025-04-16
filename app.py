@@ -32,20 +32,20 @@ def index():
         TS.IN_ESTADOCAJA_INTEGRADA AS CAJA_INTEGRADA,
         TS.ST_COD_TERMINAL AS ID_TERMINAL_GETNET,
         TS.ST_COD_SUCURSALASIGNACIONTERMINAL AS ID_SUCURSAL_GETNET
-        FROM homologacionpalumbo.dbo.T_GEN_SUCURSAL S    
+        FROM palumbo.dbo.T_GEN_SUCURSAL S    
         JOIN ADYACENTE.DBO.T_GETNET_TERMINALSUCURSALES TS 
         ON TS.IN_COD_SUCURSAL = S.IN_COD_SUCURSAL
         AND S.ST_DESC_SUCURSAL NOT LIKE '%(CERRADO)%'
         AND CONVERT(INT, S.ST_CODIGO_SUCURSAL) > 300
         AND CONVERT(INT, S.ST_CODIGO_SUCURSAL) < 500
-        JOIN homologacionpalumbo.dbo.T_POS_CAJASUCURSAL C 
+        JOIN palumbo.dbo.T_POS_CAJASUCURSAL C 
         ON C.IN_COD_CAJASUCURSAL = TS.IN_COD_CAJASUCURSAL
         
         """
 
         query_dropdown_sucursal = """
         SELECT DISTINCT ST_DESC_SUCURSAL
-        FROM homologacionpalumbo.DBO.T_GEN_SUCURSAL S
+        FROM palumbo.DBO.T_GEN_SUCURSAL S
         JOIN T_GETNET_TERMINALSUCURSALES TS 
         ON TS.IN_COD_SUCURSAL = S.IN_COD_SUCURSAL
         WHERE ST_DESC_SUCURSAL NOT LIKE '%(CERRADO)%'
@@ -55,8 +55,8 @@ def index():
 
         query_dropdown_caja = """
         SELECT DISTINCT C.ST_DESC_CAJASUCURSAL 
-        FROM homologacionpalumbo.DBO.T_GEN_SUCURSAL S
-        JOIN homologacionpalumbo.DBO.T_POS_CAJASUCURSAL C
+        FROM palumbo.DBO.T_GEN_SUCURSAL S
+        JOIN palumbo.DBO.T_POS_CAJASUCURSAL C
         ON C.IN_COD_SUCURSAL = S.IN_COD_SUCURSAL
         """
 
@@ -159,7 +159,7 @@ def insertar():
 
             sucursal_query = """
             SELECT IN_COD_SUCURSAL 
-            FROM homologacionpalumbo.DBO.T_GEN_SUCURSAL
+            FROM palumbo.DBO.T_GEN_SUCURSAL
             WHERE ST_DESC_SUCURSAL LIKE ?
             """
             cursor.execute(sucursal_query, sucursal)
@@ -172,7 +172,7 @@ def insertar():
 
             caja_query = """
             SELECT IN_COD_CAJASUCURSAL
-            FROM homologacionpalumbo.DBO.T_POS_CAJASUCURSAL
+            FROM palumbo.DBO.T_POS_CAJASUCURSAL
             WHERE ST_DESC_CAJASUCURSAL LIKE ?
             """
             cursor.execute(caja_query, caja)
@@ -211,7 +211,7 @@ def insert():
     try:
         query_dropdown_sucursal = """
         SELECT ST_DESC_SUCURSAL
-        FROM homologacionpalumbo.DBO.T_GEN_SUCURSAL S
+        FROM palumbo.DBO.T_GEN_SUCURSAL S
         LEFT JOIN T_GETNET_TERMINALSUCURSALES TS 
         ON TS.IN_COD_SUCURSAL = S.IN_COD_SUCURSAL
         WHERE ST_DESC_SUCURSAL NOT LIKE '%(CERRADO)%'
@@ -221,8 +221,8 @@ def insert():
 
         query_dropdown_caja = """
         SELECT C.ST_DESC_CAJASUCURSAL 
-		FROM homologacionpalumbo.DBO.T_GEN_SUCURSAL S
-		JOIN homologacionpalumbo.DBO.T_POS_CAJASUCURSAL C
+		FROM palumbo.DBO.T_GEN_SUCURSAL S
+		JOIN palumbo.DBO.T_POS_CAJASUCURSAL C
 		ON C.IN_COD_SUCURSAL = S.IN_COD_SUCURSAL
         """
 
@@ -264,7 +264,7 @@ def update():
     try:
         query_dropdown_sucursal = """
         SELECT DISTINCT ST_DESC_SUCURSAL
-        FROM homologacionpalumbo.DBO.T_GEN_SUCURSAL S
+        FROM palumbo.DBO.T_GEN_SUCURSAL S
         LEFT JOIN T_GETNET_TERMINALSUCURSALES TS 
         ON TS.IN_COD_SUCURSAL = S.IN_COD_SUCURSAL
         WHERE ST_DESC_SUCURSAL NOT LIKE '%(CERRADO)%'
@@ -274,8 +274,8 @@ def update():
 
         query_dropdown_caja = """
         SELECT DISTINCT C.ST_DESC_CAJASUCURSAL 
-		FROM homologacionpalumbo.DBO.T_GEN_SUCURSAL S
-		JOIN homologacionpalumbo.DBO.T_POS_CAJASUCURSAL C
+		FROM palumbo.DBO.T_GEN_SUCURSAL S
+		JOIN palumbo.DBO.T_POS_CAJASUCURSAL C
 		ON C.IN_COD_SUCURSAL = S.IN_COD_SUCURSAL
         """
         id = request.args.get('id')
@@ -335,7 +335,7 @@ def guardar():
 
             sucursal_query = """
             SELECT IN_COD_SUCURSAL 
-            FROM homologacionpalumbo.DBO.T_GEN_SUCURSAL
+            FROM palumbo.DBO.T_GEN_SUCURSAL
             WHERE ST_DESC_SUCURSAL LIKE ?
             """
             cursor.execute(sucursal_query, sucursal)
@@ -348,7 +348,7 @@ def guardar():
 
             caja_query = """
             SELECT IN_COD_CAJASUCURSAL
-            FROM homologacionpalumbo.DBO.T_POS_CAJASUCURSAL
+            FROM palumbo.DBO.T_POS_CAJASUCURSAL
             WHERE ST_DESC_CAJASUCURSAL LIKE ?
             """
             cursor.execute(caja_query, caja)
@@ -409,8 +409,8 @@ def actualizar_cajas():
 
         query_dropdown_caja = """
         SELECT DISTINCT C.ST_DESC_CAJASUCURSAL 
-        FROM homologacionpalumbo.DBO.T_GEN_SUCURSAL S
-        JOIN homologacionpalumbo.DBO.T_POS_CAJASUCURSAL C
+        FROM palumbo.DBO.T_GEN_SUCURSAL S
+        JOIN palumbo.DBO.T_POS_CAJASUCURSAL C
         ON C.IN_COD_SUCURSAL = S.IN_COD_SUCURSAL
         WHERE S.ST_DESC_SUCURSAL LIKE ?
         """
