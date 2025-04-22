@@ -17,7 +17,7 @@ RUN apt-get update && ACCEPT_EULA=Y apt-get install -y \
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 RUN pip install pyodbc
 RUN apt-get update && apt-get install -y unixodbc
-EXPOSE 4000
+
 USER userflask
 CMD [ "python", "app.py" ]
 
