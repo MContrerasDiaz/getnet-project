@@ -7,10 +7,11 @@ from dotenv import load_dotenv
 load_dotenv()
 server = os.getenv("SERVIDOR")
 database = os.getenv("BASE_DE_DATOS")
-#user = os.getenv("USUARIO")
-#pwd = os.getenv("CLAVE")
+username = os.getenv("USUARIO")
+password = os.getenv("CLAVE")
 
-connection_string = f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};TrustServerCertificate=Yes;Trusted_Connection=yes;'
+connection_string = f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password};TrustServerCertificate=Yes;'
+
 #UID={user};PWD={pwd};
 
 
