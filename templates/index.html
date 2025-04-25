@@ -321,11 +321,19 @@
     }
 
 
-        function confirmUpdate(button) {
-            var confirmUpdate = confirm("¿Estás seguro de que deseas actualizar el estado?");
-            if (confirmUpdate) {
-                updateEstadoTerminal(button);
-            }
+            function confirmUpdate(button) {
+            const id_terminal = $(button).data('id');
+
+            $.get(`/verificar_caja_activa/${id_terminal}`, function(response) {
+                if (response.success) {
+                    const confirmUpdate = confirm("¿Estás seguro de que deseas actualizar el estado?");
+                    if (confirmUpdate) {
+                        updateEstadoTerminal(button);
+                    }
+                } else {
+                    alert(response.message);
+                }
+            });
         }
         function updateEstadoTerminal(button) {
             const id_terminal = $(button).data('id');
