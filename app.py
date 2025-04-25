@@ -550,8 +550,41 @@ def agregar_razon():
     finally:
         conn.close()
 
+@app.route('/verificar_caja_activa/<int:id_terminal>', methods=['GET'])
+def verificar_caja_activa(id_terminal):
+    try:
+        with pyodbc.connect(connection_string) as connection:
+            cursor = connection.cursor()
+
+            query_caja = """
+                SELECT IN_COD_CAJASUCURSAL 
+                FROM T_GETNET_TERMINALSUCURSALES 
+                WHERE IN_COD_TERMINALSUCURSALES = ?
+            """
+            cursor.execute(query_caja, (id_terminal,))
+            result = cursor.fetchone()
+            if not result:
+                return jsonify({'success': False, 'message': 'Terminal no encontrada'})
+
+            caja_id = result[0]
 
 
+            query_verificacion = """
+                SELECT ST_SERIAL_TERMINAL 
+                FROM T_GETNET_TERMINALSUCURSALES 
+                WHERE IN_COD_CAJASUCURSAL = ? 
+                AND IN_ESTADOTERMINAL_ACTIVA = 1 
+                AND IN_COD_TERMINALSUCURSALES != ?
+            """
+            cursor.execute(query_verificacion, (caja_id, id_terminal))
+            result = cursor.fetchone()
+
+            if result:
+                return jsonify({'success': False, 'message': f'La caja ya tiene una terminal activa SERIAL: {result[0]}'})
+            else:
+                return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)})
 
 
 if __name__ == '__main__':
