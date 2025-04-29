@@ -1,8 +1,36 @@
+
 import os
 import pyodbc
 import pandas as pd
 from flask import Flask, render_template, request,redirect, url_for,jsonify,render_template_string
 from dotenv import load_dotenv
+import requests
+
+
+def obtener_token():
+    url = "https://apiqagetnet.palumbo.cl/api/getnetpos/authtrade"
+    body = {
+        "clientId": os.getenv("CLIENT_ID"),
+        "clientSecret": os.getenv("CLIENT_SECRET")
+    }
+    
+    response = requests.post(url, json=body)
+    if response.status_code == 200:
+        return response.json()['token']
+    else:
+        raise Exception(f"Error al obtener token: {response.text}")
+
+def enviar_comando(endpoint, data, token):
+    url = f"https://apiqagetnet.palumbo.cl/{endpoint}"
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+    response = requests.post(url, json=data, headers=headers)
+    print(response.jason())
+    if response.status_code == 200:
+        return response.json()
+    else:
+        raise Exception(f"Error en el envío al endpoint {endpoint}: {response.text}")
 
 load_dotenv()
 server = os.getenv("SERVIDOR")
@@ -14,6 +42,36 @@ connection_string = f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};D
 
 app = Flask(__name__)
 
+@app.route('/poll_terminal', methods=['POST'])
+def poll_terminal():
+    try:
+        body = request.json
+        token = obtener_token()
+        resultado = enviar_comando('api/getnetpos/postxs/poll', body, token)
+        return jsonify(resultado)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+    
+
+@app.route('/detalle_venta', methods=['POST'])
+def detalle_venta():
+    try:
+        body = request.json
+        token = obtener_token()
+        resultado = enviar_comando('api/getnetpos/postxs/details', body, token)
+        return jsonify(resultado)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+@app.route('/ultima_venta', methods=['POST'])
+def ultima_venta():
+    try:
+        body = request.json
+        token = obtener_token()
+        resultado = enviar_comando('api/getnetpos/duplicate', body, token)
+        return jsonify(resultado)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -208,7 +266,7 @@ def insertar():
 def insert():
     try:
         query_dropdown_sucursal = """
-        SELECT ST_DESC_SUCURSAL
+        SELECT DISTINCT ST_DESC_SUCURSAL
         FROM homologacionpalumbo.DBO.T_GEN_SUCURSAL S
         LEFT JOIN T_GETNET_TERMINALSUCURSALES TS 
         ON TS.IN_COD_SUCURSAL = S.IN_COD_SUCURSAL
@@ -413,7 +471,7 @@ def actualizar_cajas():
         WHERE S.ST_DESC_SUCURSAL LIKE ?
         """
         
-        params_caja = [f"%{sucursal_input}%"]
+        params_caja = [f"{sucursal_input}%"]
         
         with pyodbc.connect(connection_string) as connection:
             df_dropdown_caja = pd.read_sql(query_dropdown_caja, connection, params=params_caja)
@@ -568,7 +626,6 @@ def verificar_caja_activa(id_terminal):
 
             caja_id = result[0]
 
-
             query_verificacion = """
                 SELECT ST_SERIAL_TERMINAL 
                 FROM T_GETNET_TERMINALSUCURSALES 
@@ -585,7 +642,6 @@ def verificar_caja_activa(id_terminal):
                 return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)})
-
 
 if __name__ == '__main__':
     app.run(debug=True,host="0.0.0.0",port=4000)
