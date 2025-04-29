@@ -1,46 +1,63 @@
-
-import os
 import pyodbc
 import pandas as pd
-from flask import Flask, render_template, request,redirect, url_for,jsonify,render_template_string
+from flask import Flask, render_template, request, redirect, url_for, jsonify, render_template_string
 from dotenv import load_dotenv
 import requests
+import os
+from urllib3.exceptions import InsecureRequestWarning
+
+load_dotenv()
+
+app = Flask(__name__)
+
+
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
+client_id = os.getenv("CLIENT_ID")
+client_secret = os.getenv("CLIENT_SECRET")
+
+print("Probando con:")
+print("CLIENT_ID:", client_id)
+print("CLIENT_SECRET:", client_secret)
 
 
 def obtener_token():
     url = "https://apiqagetnet.palumbo.cl/api/getnetpos/authtrade"
-    body = {
-        "clientId": os.getenv("CLIENT_ID"),
-        "clientSecret": os.getenv("CLIENT_SECRET")
+    headers = {
+        "Content-Type": "application/json"
     }
-    
-    response = requests.post(url, json=body)
+    body = {
+        "clientId": client_id,
+        "clientSecret": client_secret
+    }
+    response = requests.post(url, headers=headers, json=body, verify=False)
+
     if response.status_code == 200:
-        return response.json()['token']
+        data = response.json()
+        token = data["data"]["token"]  # Accediendo al token dentro de "data"
+        print("Token obtenido:", token)  # Imprimir el token
+        return token
     else:
-        raise Exception(f"Error al obtener token: {response.text}")
+        raise Exception(f"Error al obtener token: {response.status_code} - {response.text}")
+
+token = obtener_token()
+
 
 def enviar_comando(endpoint, data, token):
     url = f"https://apiqagetnet.palumbo.cl/{endpoint}"
     headers = {
+        "Content-Type": "application/json",
         "Authorization": f"Bearer {token}"
     }
-    response = requests.post(url, json=data, headers=headers)
-    print(response.jason())
-    if response.status_code == 200:
+    response = requests.post(url, headers=headers, json=data, verify=False)
+    
+    try:
+        response.raise_for_status()
         return response.json()
-    else:
-        raise Exception(f"Error en el envío al endpoint {endpoint}: {response.text}")
+    except requests.HTTPError as e:
+        raise Exception(f"Error en el envío al endpoint {endpoint}: {response.status_code} - {response.text}") from e
 
-load_dotenv()
-server = os.getenv("SERVIDOR")
-database = os.getenv("BASE_DE_DATOS")
-username = os.getenv("USUARIO")
-password = os.getenv("CLAVE")
-
-connection_string = f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password};TrustServerCertificate=Yes;'
-
-app = Flask(__name__)
+# Endpoints Flask
 
 @app.route('/poll_terminal', methods=['POST'])
 def poll_terminal():
@@ -51,7 +68,7 @@ def poll_terminal():
         return jsonify(resultado)
     except Exception as e:
         return jsonify({"error": str(e)}), 400
-    
+
 
 @app.route('/detalle_venta', methods=['POST'])
 def detalle_venta():
@@ -63,6 +80,7 @@ def detalle_venta():
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
+
 @app.route('/ultima_venta', methods=['POST'])
 def ultima_venta():
     try:
@@ -72,6 +90,14 @@ def ultima_venta():
         return jsonify(resultado)
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+
+
+server = os.getenv("SERVIDOR")
+database = os.getenv("BASE_DE_DATOS")
+username = os.getenv("USUARIO")
+password = os.getenv("CLAVE")
+
+connection_string = f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password};TrustServerCertificate=Yes;'
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -169,7 +195,7 @@ def index():
         
         
         query_activos = '''
-        SELECT COUNT(IN_ESTADOTERMINAL_ACTIVA)
+        SELECT COUNT(IN_ESTADOTERMINAL_ACTIVA)-1
         FROM QA_Adyacente.DBO.T_GETNET_TERMINALSUCURSALES 
         WHERE IN_ESTADOTERMINAL_ACTIVA = 1
         '''
@@ -177,11 +203,10 @@ def index():
             df_activo = pd.read_sql(query_activos, connection)
 
         terminales_activos = df_activo.iloc[0, 0]
-        
 
 
         query_cajas_integradas = '''
-        SELECT COUNT(IN_ESTADOCAJA_INTEGRADA)
+        SELECT COUNT(IN_ESTADOCAJA_INTEGRADA)-1
         FROM QA_Adyacente.DBO.T_GETNET_TERMINALSUCURSALES 
         WHERE IN_ESTADOCAJA_INTEGRADA = 1
         '''
