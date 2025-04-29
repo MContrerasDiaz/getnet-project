@@ -216,6 +216,9 @@
                         <th>ID TERMINAL GETNET</th>
                         <th>ID SUCURSAL GETNET</th>
                         <th>POLL</th>
+                        <th>DETALLE</th>
+                        <th>ÚLTIMA VENTA</th>
+
                     </tr>
                 </thead>
                 <tbody>
@@ -239,7 +242,27 @@
                                 onclick="realizarPoll(this)">
                             </button>
                         </td>
-                        
+                        <td>
+                            <button 
+                                class="btn btn-gray" 
+                                data-terminal="{{ row.ID_TERMINAL_GETNET }}" 
+                                data-sucursal="{{ row.ID_SUCURSAL_GETNET }}" 
+                                data-serial="{{ row.SERIAL }}" 
+                                data-custom-id="{{ row.ID }}" 
+                                onclick="realizarDetalleVenta(this, true)">
+                            </button>
+                        </td>
+                        <td>
+                            <button 
+                                class="btn btn-gray" 
+                                data-terminal="{{ row.ID_TERMINAL_GETNET }}" 
+                                data-sucursal="{{ row.ID_SUCURSAL_GETNET }}" 
+                                data-serial="{{ row.SERIAL }}" 
+                                data-custom-id="{{ row.ID }}" 
+                                data-operation-id="11"
+                                onclick="realizarUltimaVenta(this)">
+                            </button>
+                        </td>                        
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -247,54 +270,127 @@
         </div>
     </div>
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-    <script>
-        function realizarPoll(button) {
-            const idTerminal = button.getAttribute("data-terminal");
-            const idSucursal = button.getAttribute("data-sucursal");
-            const serialNumber = button.getAttribute("data-serial");
+<script>
+    function realizarPoll(button) {
+        const idTerminal = button.getAttribute("data-terminal");
+        const idSucursal = button.getAttribute("data-sucursal");
+        const serialNumber = button.getAttribute("data-serial");
 
-            const payload = {
-                idTerminal: idTerminal,
-                idSucursal: parseInt(idSucursal),
-                serialNumber: serialNumber,
-                command: 106
-            };
+        const payload = {
+            idTerminal: idTerminal,
+            idSucursal: parseInt(idSucursal),
+            serialNumber: serialNumber,
+            command: 106
+        };
 
-            fetch('/poll_terminal', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            })
-            .then(response => response.json().then(data => ({
-                statusCode: response.status,
-                body: data
-            })))
-            .then(({ statusCode, body }) => {
-                button.classList.remove('btn-gray', 'btn-green', 'btn-red');
+        button.classList.remove('btn-gray', 'btn-green', 'btn-red');
+        button.classList.add('btn-warning');
 
-                if (statusCode === 200 || body.status === 200) {
-                    button.classList.add('btn-green');
-                } else {
-                    button.classList.add('btn-red');
-                }
-            })
-            .catch(error => {
-                console.error('Error al hacer poll:', error);
-                button.classList.remove('btn-gray', 'btn-green');
+        fetch('/poll_terminal', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(response => response.json().then(data => ({
+            statusCode: response.status,
+            body: data
+        })))
+        .then(({ statusCode, body }) => {
+            button.classList.remove('btn-warning', 'btn-gray');
+
+            if (statusCode === 200 && body && body.status === "OK") {
+                button.classList.add('btn-green');
+            } else {
                 button.classList.add('btn-red');
-            });
-        }
+            }
+        })
+        .catch(error => {
+            console.error('Error al hacer poll:', error);
+            button.classList.remove('btn-warning', 'btn-green');
+            button.classList.add('btn-red');
+        });
+    }
+
+
+    function realizarDetalleVenta(button, print = true) {
+        const idTerminal = button.getAttribute("data-terminal");
+        const idSucursal = button.getAttribute("data-sucursal");
+        const serialNumber = button.getAttribute("data-serial");
+        const customId = button.getAttribute("data-custom-id");
+
+        const payload = {
+            idTerminal,
+            idSucursal: parseInt(idSucursal),
+            serialNumber,
+            command: 105,
+            printOnPos: print,
+            customId
+        };
+
+        fetch('/detalle_venta', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(response => response.json().then(data => ({ statusCode: response.status, body: data })))
+        .then(({ statusCode, body }) => {
+            button.classList.remove('btn-gray', 'btn-green', 'btn-red');
+            if (statusCode === 200 || body.status === 200) {
+                button.classList.add('btn-green');
+            } else {
+                button.classList.add('btn-red');
+            }
+        })
+        .catch(error => {
+            console.error('Error en detalle de venta:', error);
+            button.classList.remove('btn-gray', 'btn-green');
+            button.classList.add('btn-red');
+        });
+    }
+
+    function realizarUltimaVenta(button) {
+        const idTerminal = button.getAttribute("data-terminal");
+        const idSucursal = button.getAttribute("data-sucursal");
+        const serialNumber = button.getAttribute("data-serial");
+        const customId = button.getAttribute("data-custom-id");
+        const operationId = parseInt(button.getAttribute("data-operation-id"));
+
+        const payload = {
+            idTerminal,
+            idSucursal: parseInt(idSucursal),
+            serialNumber,
+            command: 109,
+            operationId,
+            printOnPos: true,
+            customId
+        };
+
+        fetch('/ultima_venta', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(response => response.json().then(data => ({ statusCode: response.status, body: data })))
+        .then(({ statusCode, body }) => {
+            button.classList.remove('btn-gray', 'btn-green', 'btn-red');
+            if (statusCode === 200 || body.status === 200) {
+                button.classList.add('btn-green');
+            } else {
+                button.classList.add('btn-red');
+            }
+        })
+        .catch(error => {
+            console.error('Error en última venta:', error);
+            button.classList.remove('btn-gray', 'btn-green');
+            button.classList.add('btn-red');
+        });
+    }
 
 
 
-        function mostrarOpciones(dropdownId) {
-            const dropdown = document.getElementById(dropdownId);
-            dropdown.style.display = 'block';
-        }
-
-        function filtrarOpciones(inputId, dropdownId) {
+    function filtrarOpciones(inputId, dropdownId) {
             const input = document.getElementById(inputId);
             const filter = input.value.toUpperCase();
             const dropdown = document.getElementById(dropdownId);
@@ -432,6 +528,5 @@
             });
         }
 
-    </script>
-</body>
+</script></body>
 </html>
