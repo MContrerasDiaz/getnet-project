@@ -124,6 +124,10 @@
         .monitoreo p{
             border-color: #007bff;
         }
+        
+        .btn-gray {
+        background-color: gray;
+        }
 
 
 
@@ -178,6 +182,7 @@
                 </ul>
             </div>
 
+            <!--
             <div class="dropdown">
                 <input class="input-style" type="text" id="miInputTerminalIntegrada" name="miInputTerminalIntegrada" oninput="filtrarOpciones('miInputTerminalIntegrada', 'miDropdownTerminalIntegrada')" onfocus="mostrarOpciones('miDropdownTerminalIntegrada')" placeholder="Terminal integrada" value="{{ request.form.miInputTerminalIntegrada }}">
                 <ul id="miDropdownTerminalIntegrada" class="dropdown-content">
@@ -185,7 +190,7 @@
                     <li onclick="seleccionarOpcion('miInputTerminalIntegrada', '1')">Sí</li>
                     <li onclick="seleccionarOpcion('miInputTerminalIntegrada', '0')">No</li>
                 </ul>
-            </div>
+            </div> -->
 
             <br>
             <br>
@@ -205,25 +210,36 @@
                         <th>SERIAL</th>
                         <th>SUCURSAL</th>
                         <th>CAJA</th>
-                        <th><p class="terminales_activos">ACTIVAS: {{ terminales_activos }}</p>ESTADO TERMINAL</th>
-                        <th>TERMINAL INTEGRADA</th>
+                        <th><p class="terminales_activos">ACTIVAS: {{ terminales_activos }}</p>TERMINAL ASIGNADA</th>
+                        <!--<th>TERMINAL INTEGRADA</th>-->
                         <th><p class="cajas_integradas">INTEGRADAS: {{cajas_integradas}}</p> CAJA INTEGRADA</th>
                         <th>ID TERMINAL GETNET</th>
                         <th>ID SUCURSAL GETNET</th>
+                        <th>POLL</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for row in table_data %}
                     <tr>
-                        <td><a href="{{ url_for('update', id=row.ID, serial=row.SERIAL, sucursal=row.SUCURSAL, caja=row.CAJA, estado_terminal=(1 if row.ESTADO_TERMINAL == 'btn-green' else 0), terminal_integrado=(1 if row.TERMINAL_INTEGRADO == 'btn-green' else 0), CAJA_INTEGRADA=(1 if row.CAJA_INTEGRADA == 'btn-green' else 0), id_terminal_getnet=row.ID_TERMINAL_GETNET, id_sucursal_getnet=row.ID_SUCURSAL_GETNET) }}">{{ row.ID }}</a></td>
+                        <td><a href="{{ url_for('update', id=row.ID, serial=row.SERIAL, sucursal=row.SUCURSAL, caja=row.CAJA, CAJA_INTEGRADA=(1 if row.CAJA_INTEGRADA == 'btn-green' else 0), id_terminal_getnet=row.ID_TERMINAL_GETNET, id_sucursal_getnet=row.ID_SUCURSAL_GETNET) }}">{{ row.ID }}</a></td> <!-- estado_terminal=(1 if row.ESTADO_TERMINAL == 'btn-green' else 0), terminal_integrado=(1 if row.TERMINAL_INTEGRADO == 'btn-green' else 0)-->
                         <td>{{ row.SERIAL }}</td>
                         <td>{{ row.SUCURSAL }}</td>
                         <td>{{ row.CAJA }}</td>
                         <td><button class="btn {{ row.ESTADO_TERMINAL }}" data-id="{{ row.ID }}" onclick="confirmUpdate(this)"></button></td>
-                        <td><span class="btn {{ row.TERMINAL_INTEGRADO }}"></span></td>
-                        <td><span class="btn {{ row.CAJA_INTEGRADA }}" data-id="{{ row.ID }}" onclick="confirmUpdate2(this)"></span></td>
+                        <!--<td><span class="btn {{ row.TERMINAL_INTEGRADO }}"></span></td>-->
+                        <td><span class="btn {{ row.CAJA_INTEGRADA }}" data-id="{{ row.ID }}" onclick="confirmUpdate2(this)"></span></td>                        
                         <td>{{ row.ID_TERMINAL_GETNET }}</td>
                         <td>{{ row.ID_SUCURSAL_GETNET }}</td>
+                        <td>
+                            <button 
+                                class="btn btn-gray" 
+                                data-terminal="{{ row.ID_TERMINAL_GETNET }}" 
+                                data-sucursal="{{ row.ID_SUCURSAL_GETNET }}" 
+                                data-serial="{{ row.SERIAL }}" 
+                                onclick="realizarPoll(this)">
+                            </button>
+                        </td>
+                        
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -232,6 +248,47 @@
     </div>
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script>
+        function realizarPoll(button) {
+            const idTerminal = button.getAttribute("data-terminal");
+            const idSucursal = button.getAttribute("data-sucursal");
+            const serialNumber = button.getAttribute("data-serial");
+
+            const payload = {
+                idTerminal: idTerminal,
+                idSucursal: parseInt(idSucursal),
+                serialNumber: serialNumber,
+                command: 106
+            };
+
+            fetch('/poll_terminal', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(response => response.json().then(data => ({
+                statusCode: response.status,
+                body: data
+            })))
+            .then(({ statusCode, body }) => {
+                button.classList.remove('btn-gray', 'btn-green', 'btn-red');
+
+                if (statusCode === 200 || body.status === 200) {
+                    button.classList.add('btn-green');
+                } else {
+                    button.classList.add('btn-red');
+                }
+            })
+            .catch(error => {
+                console.error('Error al hacer poll:', error);
+                button.classList.remove('btn-gray', 'btn-green');
+                button.classList.add('btn-red');
+            });
+        }
+
+
+
         function mostrarOpciones(dropdownId) {
             const dropdown = document.getElementById(dropdownId);
             dropdown.style.display = 'block';
@@ -319,8 +376,7 @@
         };
         xhr.send(JSON.stringify({ sucursal: sucursal }));
     }
-
-
+    
             function confirmUpdate(button) {
             const id_terminal = $(button).data('id');
 
@@ -335,6 +391,7 @@
                 }
             });
         }
+
         function updateEstadoTerminal(button) {
             const id_terminal = $(button).data('id');
             $.post('/update_estado_terminal/' + id_terminal, function(response) {
