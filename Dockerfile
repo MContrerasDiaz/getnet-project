@@ -1,9 +1,5 @@
-<<<<<<< HEAD
-FROM python:3.13.2
-=======
 FROM python:alpine
 
->>>>>>> 3fd903c (Primer commit)
 RUN groupadd -r groupflask && useradd -r -g groupflask userflask
 
 
@@ -22,11 +18,7 @@ RUN apt-get update && ACCEPT_EULA=Y apt-get install -y \
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 RUN pip install pyodbc
 RUN apt-get update && apt-get install -y unixodbc
-<<<<<<< HEAD
-
-=======
 EXPOSE 4000
->>>>>>> 3fd903c (Primer commit)
 USER userflask
 CMD [ "python", "app.py" ]
 
