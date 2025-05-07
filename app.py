@@ -10,11 +10,12 @@ load_dotenv()
 
 app = Flask(__name__)
 
-
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 client_id = os.getenv("CLIENT_ID")
 client_secret = os.getenv("CLIENT_SECRET")
+base_url = os.getenv("URL")
+base_palumbo = os.getenv("AMBIENTE")
 
 print("Probando con:")
 print("CLIENT_ID:", client_id)
@@ -22,7 +23,7 @@ print("CLIENT_SECRET:", client_secret)
 
 
 def obtener_token():
-    url = "https://apiqagetnet.palumbo.cl/api/getnetpos/authtrade"
+    url = f"{base_url}/api/getnetpos/authtrade"
     headers = {
         "Content-Type": "application/json"
     }
@@ -44,7 +45,7 @@ token = obtener_token()
 
 
 def enviar_comando(endpoint, data, token):
-    url = f"https://apiqagetnet.palumbo.cl/{endpoint}"
+    url = f"{base_url}/{endpoint}"
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {token}"
@@ -103,7 +104,7 @@ connection_string = f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};D
 @app.route('/', methods=['GET', 'POST'])
 def index():
     try:
-        query_main = """
+        query_main = f"""
         SELECT 
         TS.IN_COD_TERMINALSUCURSALES AS ID, 
         TS.ST_SERIAL_TERMINAL AS SERIAL,
@@ -114,31 +115,31 @@ def index():
         TS.IN_ESTADOCAJA_INTEGRADA AS CAJA_INTEGRADA,
         TS.ST_COD_TERMINAL AS ID_TERMINAL_GETNET,
         TS.ST_COD_SUCURSALASIGNACIONTERMINAL AS ID_SUCURSAL_GETNET
-        FROM homologacionpalumbo.dbo.T_GEN_SUCURSAL S    
+        FROM {base_palumbo}.dbo.T_GEN_SUCURSAL S    
         JOIN QA_Adyacente.DBO.T_GETNET_TERMINALSUCURSALES TS 
         ON TS.IN_COD_SUCURSAL = S.IN_COD_SUCURSAL
         AND S.ST_DESC_SUCURSAL NOT LIKE '%(CERRADO)%'
         AND CONVERT(INT, S.ST_CODIGO_SUCURSAL) > 300
-        AND CONVERT(INT, S.ST_CODIGO_SUCURSAL) < 500
-        JOIN homologacionpalumbo.dbo.T_POS_CAJASUCURSAL C 
+        AND CONVERT(INT, S.ST_CODIGO_SUCURSAL) < 900
+        JOIN {base_palumbo}.dbo.T_POS_CAJASUCURSAL C 
         ON C.IN_COD_CAJASUCURSAL = TS.IN_COD_CAJASUCURSAL
         
         """
 
-        query_dropdown_sucursal = """
+        query_dropdown_sucursal = f"""
         SELECT DISTINCT ST_DESC_SUCURSAL
-        FROM homologacionpalumbo.DBO.T_GEN_SUCURSAL S
+        FROM {base_palumbo}.DBO.T_GEN_SUCURSAL S
         JOIN T_GETNET_TERMINALSUCURSALES TS 
         ON TS.IN_COD_SUCURSAL = S.IN_COD_SUCURSAL
         WHERE ST_DESC_SUCURSAL NOT LIKE '%(CERRADO)%'
         AND CONVERT(INT, ST_CODIGO_SUCURSAL) > 300
-        AND CONVERT(INT, ST_CODIGO_SUCURSAL) < 500
+        AND CONVERT(INT, ST_CODIGO_SUCURSAL) < 900
         """
 
-        query_dropdown_caja = """
+        query_dropdown_caja = f"""
         SELECT DISTINCT C.ST_DESC_CAJASUCURSAL 
-        FROM homologacionpalumbo.DBO.T_GEN_SUCURSAL S
-        JOIN homologacionpalumbo.DBO.T_POS_CAJASUCURSAL C
+        FROM {base_palumbo}.DBO.T_GEN_SUCURSAL S
+        JOIN {base_palumbo}.DBO.T_POS_CAJASUCURSAL C
         ON C.IN_COD_SUCURSAL = S.IN_COD_SUCURSAL
         """
 
@@ -167,7 +168,7 @@ def index():
             if terminal_serial_input:
                 query_main += f" AND TS.ST_SERIAL_TERMINAL LIKE '%{terminal_serial_input}%'"
 
-            query_main+= f'''ORDER BY 
+        query_main+= f'''ORDER BY 
 		CASE WHEN TS.IN_ESTADOCAJA_INTEGRADA = 1 AND  TS.IN_ESTADOTERMINAL_ACTIVA =1 AND TS.IN_ESTADOCAJA_INTEGRADA=1 THEN 1 ELSE 0 END DESC,		
 		ESTADO_TERMINAL DESC, TERMINAL_INTEGRADO DESC,CAJA_INTEGRADA DESC, CAJA'''
 
@@ -195,7 +196,7 @@ def index():
         
         
         query_activos = '''
-        SELECT COUNT(IN_ESTADOTERMINAL_ACTIVA)-1
+        SELECT COUNT(IN_ESTADOTERMINAL_ACTIVA)
         FROM QA_Adyacente.DBO.T_GETNET_TERMINALSUCURSALES 
         WHERE IN_ESTADOTERMINAL_ACTIVA = 1
         '''
@@ -206,7 +207,7 @@ def index():
 
 
         query_cajas_integradas = '''
-        SELECT COUNT(IN_ESTADOCAJA_INTEGRADA)-1
+        SELECT COUNT(IN_ESTADOCAJA_INTEGRADA)
         FROM QA_Adyacente.DBO.T_GETNET_TERMINALSUCURSALES 
         WHERE IN_ESTADOCAJA_INTEGRADA = 1
         '''
@@ -238,9 +239,9 @@ def insertar():
         with pyodbc.connect(connection_string) as connection:
             cursor = connection.cursor()
 
-            sucursal_query = """
+            sucursal_query = f"""
             SELECT IN_COD_SUCURSAL 
-            FROM homologacionpalumbo.DBO.T_GEN_SUCURSAL
+            FROM {base_palumbo}.DBO.T_GEN_SUCURSAL
             WHERE ST_DESC_SUCURSAL LIKE ?
             """
             cursor.execute(sucursal_query, sucursal)
@@ -251,9 +252,9 @@ def insertar():
 
             sucursal_code = sucursal_row[0]
 
-            caja_query = """
+            caja_query = f"""
             SELECT IN_COD_CAJASUCURSAL
-            FROM homologacionpalumbo.DBO.T_POS_CAJASUCURSAL
+            FROM {base_palumbo}.DBO.T_POS_CAJASUCURSAL
             WHERE ST_DESC_CAJASUCURSAL LIKE ?
             """
             cursor.execute(caja_query, caja)
@@ -290,23 +291,23 @@ def insertar():
 @app.route('/insert', methods=['GET', 'POST'])
 def insert():
     try:
-        query_dropdown_sucursal = """
+        query_dropdown_sucursal = f"""
         SELECT DISTINCT ST_DESC_SUCURSAL
-        FROM homologacionpalumbo.DBO.T_GEN_SUCURSAL S
+        FROM {base_palumbo}.DBO.T_GEN_SUCURSAL S
         LEFT JOIN T_GETNET_TERMINALSUCURSALES TS 
         ON TS.IN_COD_SUCURSAL = S.IN_COD_SUCURSAL
         WHERE ST_DESC_SUCURSAL NOT LIKE '%(CERRADO)%'
         AND CONVERT(INT,ST_CODIGO_SUCURSAL) > 300
-        AND CONVERT(INT,ST_CODIGO_SUCURSAL) < 500
+        AND CONVERT(INT,ST_CODIGO_SUCURSAL) < 900
         """
 
-        query_dropdown_caja = """
+        query_dropdown_caja = f"""
         SELECT C.ST_DESC_CAJASUCURSAL 
-		FROM homologacionpalumbo.DBO.T_GEN_SUCURSAL S
-		JOIN homologacionpalumbo.DBO.T_POS_CAJASUCURSAL C
+		FROM {base_palumbo}.DBO.T_GEN_SUCURSAL S
+		JOIN {base_palumbo}.DBO.T_POS_CAJASUCURSAL C
 		ON C.IN_COD_SUCURSAL = S.IN_COD_SUCURSAL
         """
-
+        
         params_sucursal = []
         params_caja = []
         if request.method == 'POST':
@@ -322,6 +323,8 @@ def insert():
             if caja_input:
                 query_dropdown_caja += " AND C.ST_DESC_CAJASUCURSAL LIKE ?"
                 params_caja.append(f"%{caja_input}%")
+
+            print(f"Caja input despues insert: '{caja_input}'")
         
         with pyodbc.connect(connection_string) as connection:
             df_dropdown_sucursal = pd.read_sql(query_dropdown_sucursal, connection, params=params_sucursal)
@@ -343,20 +346,20 @@ def insert():
 @app.route('/update', methods=['GET', 'POST'])
 def update():
     try:
-        query_dropdown_sucursal = """
+        query_dropdown_sucursal = f"""
         SELECT DISTINCT ST_DESC_SUCURSAL
-        FROM homologacionpalumbo.DBO.T_GEN_SUCURSAL S
+        FROM {base_palumbo}.DBO.T_GEN_SUCURSAL S
         LEFT JOIN T_GETNET_TERMINALSUCURSALES TS 
         ON TS.IN_COD_SUCURSAL = S.IN_COD_SUCURSAL
         WHERE ST_DESC_SUCURSAL NOT LIKE '%(CERRADO)%'
         AND CONVERT(INT,ST_CODIGO_SUCURSAL) > 300
-        AND CONVERT(INT,ST_CODIGO_SUCURSAL) < 500
+        AND CONVERT(INT,ST_CODIGO_SUCURSAL) < 900
         """
 
-        query_dropdown_caja = """
+        query_dropdown_caja = f"""
         SELECT DISTINCT C.ST_DESC_CAJASUCURSAL 
-		FROM homologacionpalumbo.DBO.T_GEN_SUCURSAL S
-		JOIN homologacionpalumbo.DBO.T_POS_CAJASUCURSAL C
+		FROM {base_palumbo}.DBO.T_GEN_SUCURSAL S
+		JOIN {base_palumbo}.DBO.T_POS_CAJASUCURSAL C
 		ON C.IN_COD_SUCURSAL = S.IN_COD_SUCURSAL
         """
         id = request.args.get('id')
@@ -367,22 +370,33 @@ def update():
         caja_input = request.args.get('caja')
         id_terminal_getnet = request.args.get('id_terminal_getnet')
         id_sucursal_getnet = request.args.get('id_sucursal_getnet')
-
         params_sucursal = []
         params_caja = []
-        if request.method == 'POST':
-            sucursal_input = request.form.get('sucursal')
-            caja_input = request.form.get('caja')
+
+        sucursal_input = request.form.get('sucursal') if request.method == 'POST' else request.args.get('sucursal')
+        caja_input = request.form.get('caja') if request.method == 'POST' else request.args.get('caja')
+
+        print(f"Caja input antes: '{caja_input}'")
+
+        if request.method == 'POST' and sucursal_input:
+            query_dropdown_sucursal += " AND ST_DESC_SUCURSAL LIKE ?"
+            params_sucursal.append(f"%{sucursal_input}%")
+        else:
+            pass
+
+        if sucursal_input:
+            query_dropdown_caja += " AND (S.ST_DESC_SUCURSAL = ? OR S.ST_DESC_SUCURSAL LIKE ?)"
+            params_caja.append(sucursal_input)
+            params_caja.append(f"%{sucursal_input}%")
             
-            if sucursal_input:
-                query_dropdown_sucursal += " AND ST_DESC_SUCURSAL LIKE ?"
-                query_dropdown_caja += " AND S.ST_DESC_SUCURSAL LIKE ?"
-                params_sucursal.append(f"%{sucursal_input}%")
-                params_caja.append(f"%{sucursal_input}%")
-            
-            if caja_input:
-                query_dropdown_caja += " AND C.ST_DESC_CAJASUCURSAL LIKE ?"
-                params_caja.append(f"%{caja_input}%")
+
+        
+        if caja_input:
+            query_dropdown_caja += " AND C.ST_DESC_CAJASUCURSAL LIKE ?"
+            params_caja.append(f"%{caja_input}%")
+
+        print(f"Caja input despues: '{caja_input}'")
+
         
         with pyodbc.connect(connection_string) as connection:
             df_dropdown_sucursal = pd.read_sql(query_dropdown_sucursal, connection, params=params_sucursal)
@@ -414,9 +428,9 @@ def guardar():
         with pyodbc.connect(connection_string) as connection:
             cursor = connection.cursor()
 
-            sucursal_query = """
+            sucursal_query = f"""
             SELECT IN_COD_SUCURSAL 
-            FROM homologacionpalumbo.DBO.T_GEN_SUCURSAL
+            FROM {base_palumbo}.DBO.T_GEN_SUCURSAL
             WHERE ST_DESC_SUCURSAL LIKE ?
             """
             cursor.execute(sucursal_query, sucursal)
@@ -427,9 +441,9 @@ def guardar():
 
             sucursal_code = sucursal_row[0]
 
-            caja_query = """
+            caja_query = f"""
             SELECT IN_COD_CAJASUCURSAL
-            FROM homologacionpalumbo.DBO.T_POS_CAJASUCURSAL
+            FROM {base_palumbo}.DBO.T_POS_CAJASUCURSAL
             WHERE ST_DESC_CAJASUCURSAL LIKE ?
             """
             cursor.execute(caja_query, caja)
@@ -488,10 +502,10 @@ def actualizar_cajas():
         data = request.get_json()
         sucursal_input = data.get('sucursal')
 
-        query_dropdown_caja = """
+        query_dropdown_caja = f"""
         SELECT DISTINCT C.ST_DESC_CAJASUCURSAL 
-        FROM homologacionpalumbo.DBO.T_GEN_SUCURSAL S
-        JOIN homologacionpalumbo.DBO.T_POS_CAJASUCURSAL C
+        FROM {base_palumbo}.DBO.T_GEN_SUCURSAL S
+        JOIN {base_palumbo}.DBO.T_POS_CAJASUCURSAL C
         ON C.IN_COD_SUCURSAL = S.IN_COD_SUCURSAL
         WHERE S.ST_DESC_SUCURSAL LIKE ?
         """
@@ -667,6 +681,7 @@ def verificar_caja_activa(id_terminal):
                 return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)})
+        
 
 if __name__ == '__main__':
     app.run(debug=True,host="0.0.0.0",port=4000)
