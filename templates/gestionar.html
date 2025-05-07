@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>gestionar</title>
+  <style>
+
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  background-color: #f5f5f5;
+}
+
+
+a.btn-secondary {
+  position: fixed;
+  top: 70px;
+  left: 20px;
+  text-decoration: none;
+  font-size: 1rem;
+  color: #fff;
+  background-color: #6c757d;
+  padding: 10px 20px;
+  border-radius: 4px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  z-index: 1100;
+}
+
+a.btn-secondary:hover {
+  background-color: #5a6268;
+}
+
+
+.container {
+  margin: 150px auto; /* Espacio para navbar y botón */
+  max-width: 800px;
+  padding: 20px;
+  background-color: #ffffff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+
+.container h1 {
+  margin-top: 0;
+  font-size: 1.8rem;
+  color: #333;
+  text-align: center;
+}
+
+
+form {
+  margin-top: 20px;
+}
+
+form p {
+  font-size: 1rem;
+  color: #555;
+}
+
+form label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 1rem;
+  color: #555;
+}
+
+form input {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 15px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+form button {
+  padding: 10px 20px;
+  font-size: 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #fff;
+}
+
+form button[name="accion"][value="actualizar"] {
+  background-color: #007bff;
+}
+
+form button[name="accion"][value="actualizar"]:hover {
+  background-color: #0056b3;
+}
+
+form button[name="accion"][value="eliminar"] {
+  background-color: #dc3545;
+}
+
+form button[name="accion"][value="eliminar"]:hover {
+  background-color: #c82333;
+}
+
+
+  </style>
+</head>
+<body>
+<a class="btn btn-secondary" href="{{ url_for('buscar_razon') }}">Volver al Listado</a>
+
+  <div class="container">
+    <h1>Gestionar Razón</h1>
+    <form method="POST">
+        <p>ID: {{ razon['IN_COD_RAZON'] }}</p>
+        <label for="razon_actual">Razón Actual:</label>
+        <input type="text" id="razon_actual" name="nuevo_razon" value="{{ razon['ST_RAZON'] }}" placeholder="Actualizar Razón">
+        
+        <label for="nuevo_tiempo">Nuevo Tiempo:</label>
+        <input type="number" id="nuevo_tiempo" name="nuevo_tiempo" value="{{ razon['IN_TIEMPO'] }}" placeholder="Actualizar Tiempo">
+
+        <button type="submit" name="accion" value="actualizar">Actualizar</button>
+        <button type="submit" name="accion" value="eliminar" style="background-color:red;">Eliminar</button>
+    </form>
+  </div>
+</body>
