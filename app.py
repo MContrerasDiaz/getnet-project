@@ -116,7 +116,7 @@ def index():
         TS.ST_COD_TERMINAL AS ID_TERMINAL_GETNET,
         TS.ST_COD_SUCURSALASIGNACIONTERMINAL AS ID_SUCURSAL_GETNET
         FROM {base_palumbo}.dbo.T_GEN_SUCURSAL S    
-        JOIN QA_Adyacente.DBO.T_GETNET_TERMINALSUCURSALES TS 
+        JOIN {database}.DBO.T_GETNET_TERMINALSUCURSALES TS 
         ON TS.IN_COD_SUCURSAL = S.IN_COD_SUCURSAL
         AND S.ST_DESC_SUCURSAL NOT LIKE '%(CERRADO)%'
         AND CONVERT(INT, S.ST_CODIGO_SUCURSAL) > 300
@@ -195,9 +195,9 @@ def index():
         cajas = df_dropdown_caja["ST_DESC_CAJASUCURSAL"].tolist()
         
         
-        query_activos = '''
+        query_activos = f'''
         SELECT COUNT(IN_ESTADOTERMINAL_ACTIVA)
-        FROM QA_Adyacente.DBO.T_GETNET_TERMINALSUCURSALES 
+        FROM {database}.DBO.T_GETNET_TERMINALSUCURSALES 
         WHERE IN_ESTADOTERMINAL_ACTIVA = 1
         '''
         with pyodbc.connect(connection_string) as connection:
@@ -206,9 +206,9 @@ def index():
         terminales_activos = df_activo.iloc[0, 0]
 
 
-        query_cajas_integradas = '''
+        query_cajas_integradas = f'''
         SELECT COUNT(IN_ESTADOCAJA_INTEGRADA)
-        FROM QA_Adyacente.DBO.T_GETNET_TERMINALSUCURSALES 
+        FROM {database}.DBO.T_GETNET_TERMINALSUCURSALES 
         WHERE IN_ESTADOCAJA_INTEGRADA = 1
         '''
         with pyodbc.connect(connection_string) as connection:
@@ -265,8 +265,8 @@ def insertar():
 
             caja_code = caja_row[0]
 
-            insert_query = """
-            INSERT INTO QA_Adyacente.DBO.T_GETNET_TERMINALSUCURSALES
+            insert_query = f"""
+            INSERT INTO {database}.DBO.T_GETNET_TERMINALSUCURSALES
             (
                 ST_SERIAL_TERMINAL, 
                 ST_COD_TERMINAL, 
@@ -454,14 +454,14 @@ def guardar():
 
             caja_code = caja_row[0]
 
-            id_query = "SELECT IN_COD_TERMINALSUCURSALES FROM QA_Adyacente.DBO.T_GETNET_TERMINALSUCURSALES"
+            id_query = f"SELECT IN_COD_TERMINALSUCURSALES FROM {database}.DBO.T_GETNET_TERMINALSUCURSALES"
             cursor.execute(id_query)
             existing_ids = {row[0] for row in cursor.fetchall()}
             
 
             if id_ in existing_ids:
-                update_query = """
-                UPDATE QA_Adyacente.DBO.T_GETNET_TERMINALSUCURSALES
+                update_query = f"""
+                UPDATE {database}.DBO.T_GETNET_TERMINALSUCURSALES
                 SET 
                     ST_SERIAL_TERMINAL = ?, 
                     ST_COD_TERMINAL = ?, 
