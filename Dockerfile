@@ -1,7 +1,8 @@
 FROM python:alpine
 
-RUN groupadd -r groupflask && useradd -r -g groupflask userflask
+RUN apk add --no-cache shadow
 
+RUN groupadd -r groupflask && useradd -r -g groupflask userflask
 
 COPY . /app
 WORKDIR /app
