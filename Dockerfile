@@ -1,5 +1,7 @@
 FROM python:alpine
 
+RUN apk add --no-cache shadow
+
 RUN groupadd -r groupflask && useradd -r -g groupflask userflask
 
 
