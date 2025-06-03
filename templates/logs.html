@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Historial de Acciones{% endblock %}
+{% block content %}
+<h2>Historial de Acciones del Sistema</h2>
+
+<table class="table table-bordered table-hover mt-4">
+    <thead class="table-dark">
+        <tr>
+            <th>ID</th>
+            <th>Usuario ID</th>
+            <th>Correo</th>
+            <th>Acción</th>
+            <th>Fecha y Hora</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for log in logs %}
+        <tr>
+            <td>{{ log.ID }}</td>
+            <td>{{ log.USUARIO_ID }}</td>
+            <td>{{ log.USUARIO_CORREO }}</td>
+            <td>{{ log.ACCION }}</td>
+            <td>{{ log.FECHA_HORA }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

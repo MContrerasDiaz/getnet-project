@@ -1,3 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Panel de Terminales{% endblock %}
+{% block content %}
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -10,71 +14,118 @@
     <link rel="icon" href="{{ url_for('static', filename='images/iconmonitor.png') }}" type="image/png">
 </head>
 <body>
-    <div class="container">
-        <h1>Mantenedor de Terminales GetNet 📡 </h1>
+    <div>
+        <div class="header-panel">
+        <div class="stats-dashboard">
+            <div class="stat-card">
+                <div class="stat-title">Terminales de Pago</div>
+                <div class="stat-count">{{ terminales_activas | default(0) }}/{{ terminales_total | default(0) }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-title">Cajas Integradas</div>
+                <div class="stat-count">{{ cajas_integradas | default(0) }}/{{ cajas_total | default(0) }}</div>
+            </div>
+        </div>
+            <h1 class="panel-title">Mantenedor de Terminales GetNet <i class="fas fa-satellite-dish"></i></h1>
 
         <form id="formulario_busqueda" method="POST">
-            <input class="input-style" type="text" id="busqueda_serial_terminal" name="busqueda_serial_terminal" placeholder="Serial Terminal" value="{{ request.form.busqueda_serial_terminal }}">
-            <input class="input-style" type="text" id="busqueda_id_terminal" name="busqueda_id_terminal" placeholder="ID Terminal" value="{{ request.form.busqueda_id_terminal }}">
-            <input class="input-style" type="text" id="busqueda_sucursal_terminal" name="busqueda_sucursal_terminal" placeholder="ID Sucursal Terminal" value="{{ request.form.busqueda_sucursal_terminal }}">
+        <div class="input-wrapper">
+            <div class="input-container">
 
-            <div class="dropdown">
-                <input class="input-style" type="text" id="miInput" name="miInput" 
-                       oninput="filtrarOpciones('miInput', 'miDropdown')" 
-                       onfocus="mostrarOpciones('miDropdown')" 
-                       onchange="realizarBusqueda()"
-                       placeholder="Sucursales" value="{{ request.form.miInput }}">
-                <ul id="miDropdown" class="dropdown-content">
+                <div class="dropdown">
+                    <input class="input-style" type="text" id="miInput" name="miInput"
+                        oninput="filtrarOpciones('miInput', 'miDropdown')"
+                        onfocus="mostrarOpciones('miDropdown')"
+                        onchange="realizarBusqueda()"
+                        placeholder="Sucursal"
+                        title="Nombre de la sucursal donde está instalada la terminal"
+                        value="{{ request.form.miInput }}">
+                    <ul id="miDropdown" class="dropdown-content">
+                    
                     {% for sucursal in sucursales %}
-                    <li onclick="seleccionarOpcion('miInput', '{{ sucursal }}'); actualizarCajas('{{ sucursal }}')">{{ sucursal }}</li>
+                    {% set suc = sucursal.replace('\n', ' ') %}
+                        <li onclick="seleccionarOpcion('miInput', '{{ suc }}'); actualizarCajas('{{ suc }}')">
+                            {{ suc }}
+                        </li>
                     {% endfor %}
-                </ul>
-            </div>
-            
+                    </ul>
+                </div>
 
-            <div class="dropdown">
-                <input  class="input-style" type="text" id="miInputCaja" name="miInputCaja" oninput="filtrarOpciones('miInputCaja', 'miDropdownCaja')" onfocus="mostrarOpciones('miDropdownCaja')" placeholder="Cajas" value="{{ request.form.miInputCaja }}">
-                <ul id="miDropdownCaja" class="dropdown-content">
+                <div class="dropdown">
+                    <input class="input-style" type="text" id="miInputCaja" name="miInputCaja"
+                        oninput="filtrarOpciones('miInputCaja', 'miDropdownCaja')"
+                        onfocus="mostrarOpciones('miDropdownCaja')"
+                        placeholder="Caja"
+                        title="Nombre de la sucursal donde está instalada la terminal"
+                        value="{{ request.form.miInputCaja }}">
+                    <ul id="miDropdownCaja" class="dropdown-content">
                     {% for caja in cajas %}
                     <li onclick="seleccionarOpcion('miInputCaja', '{{ caja }}')">{{ caja }}</li>
                     {% endfor %}
-                </ul>
-            </div>
+                    </ul>
+                </div>
+                <div class="dropdown">
+                    <input class="input-style" type="text" id="miInputIntegrada" name="miInputIntegrada"
+                        oninput="filtrarOpciones('miInputIntegrada', 'miDropdownIntegrada')"
+                        onfocus="mostrarOpciones('miDropdownIntegrada')"
+                        placeholder="Caja integrada"
+                        title="Indica si la caja está integrada con el sistema POS"
+                        data-real-value="{{ request.form.miInputIntegrada }}"
+                        value="{{ 'Sí' if request.form.miInputIntegrada == '1' else 'No' if request.form.miInputIntegrada == '0' else 'Todas' if request.form.miInputIntegrada == '0,1' else '' }}">
 
-            <div class="dropdown">
-                <input class="input-style" type="text" id="miInputIntegrada" name="miInputIntegrada" oninput="filtrarOpciones('miInputIntegrada', 'miDropdownIntegrada')" onfocus="mostrarOpciones('miDropdownIntegrada')" placeholder="Caja integrada" value="{{ request.form.miInputIntegrada }}">
-                <ul id="miDropdownIntegrada" class="dropdown-content">
-                    <li onclick="seleccionarOpcion('miInputIntegrada', '0,1')">Todas</li>
-                    <li onclick="seleccionarOpcion('miInputIntegrada', '1')">Sí</li>
-                    <li onclick="seleccionarOpcion('miInputIntegrada', '0')">No</li>
-                </ul>
+                    <ul id="miDropdownIntegrada" class="dropdown-content">
+                        <li onclick="seleccionarOpcion('miInputIntegrada', '0,1')">Todas</li>
+                        <li onclick="seleccionarOpcion('miInputIntegrada', '1')">Sí</li>
+                        <li onclick="seleccionarOpcion('miInputIntegrada', '0')">No</li>
+                    </ul>
+                </div>
+
+                <input class="input-style" type="text" id="busqueda_serial_terminal"
+                name="busqueda_serial_terminal"
+                placeholder="Serial Terminal"
+                title="Número de serie físico del terminal GetNet o Transbank"
+                value="{{ request.form.busqueda_serial_terminal }}">
+
+                <input class="input-style" type="text" id="busqueda_id_terminal" 
+                name="busqueda_id_terminal" 
+                placeholder="ID Terminal" 
+                title="ID único asignado por GetNet a la terminal"
+                value="{{ request.form.busqueda_id_terminal }}">
+                
+                <input class="input-style" type="text" id="busqueda_sucursal_terminal" 
+                name="busqueda_sucursal_terminal" 
+                placeholder="ID Sucursal Terminal" 
+                title="Código de sucursal vinculado a la terminal"
+                value="{{ request.form.busqueda_sucursal_terminal }}">
+
             </div>
-            <br>
-            <br>
-            <button type="submit" class="button shadow-effect primary">Buscar</button> 
-            <a href="{{ url_for('insert') }}" class="button shadow-effect warning">Nuevo Terminal</a>
-            <a href="{{ url_for('buscar_razon') }}" class="button shadow-effect success">Razon Desintegrada</a>
+        </div>
+
+            <div class="button-group">
+                <button title="Filtrar búsqueda" type="submit" class="button shadow-effect primary">Buscar</button>
+                <a href="{{ url_for('insert') }}" title="Registrar una nueva Terminal" class="button shadow-effect success">Nuevo Terminal</a>
+            </div>
         </form>
+    </div>
+</div>
 
         <br>
-    
 
         <div class="table-responsive table-container">
             <table class="table table-striped">
                 <thead>
                     <tr>
-                        <th>ID</th>
-                        <th>SERIAL</th>
-                        <th>SUCURSAL</th>
-                        <th>CAJA</th>
-                        <th><p class="terminales_activos">ACTIVAS: {{ terminales_activos }}</p>TERMINAL ASIGNADA</th>
-                        <!--<th>TERMINAL INTEGRADA</th>-->
-                        <th><p class="cajas_integradas">INTEGRADAS: {{cajas_integradas}}</p> CAJA INTEGRADA</th>
-                        <th>ID TERMINAL GETNET</th>
-                        <th>ID SUCURSAL GETNET</th>
-                        <th>POLL</th>
-                        <th>DETALLE</th>
-                        <th>VENTA</th>
+                        <th title="Identificador interno del registro">ID</th>
+                        <th title="Número de serie físico del terminal">SERIAL</th>
+                        <th title="Sucursal donde está ubicada la terminal">SUCURSAL</th>
+                        <th title="Número o código de la caja">CAJA</th>
+                        <th title="Estado de activación de la terminal">TERMINAL ASIGNADA</th>
+                        <th title="Indica si la caja está integrada con el sistema">CAJA INTEGRADA</th>
+                        <th title="ID asignado por GetNet a la terminal">ID TERMINAL GETNET</th>
+                        <th title="ID de la sucursal registrado en GetNet">ID SUCURSAL GETNET</th>
+                        <th title="Forzar actualización de estado (POLL)">POLL</th>
+                        <th title="Detalle de la última venta procesada">DETALLE</th>
+                        <th title="Consulta de la última transacción registrada">VENTA</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -90,19 +141,21 @@
                         <td>{{ row.ID_TERMINAL_GETNET }}</td>
                         <td>{{ row.ID_SUCURSAL_GETNET }}</td>
                         <td>
-                            <button class="btn-circle" onclick="realizarPoll(this)" 
+                            <button class="btn-circle" onclick="realizarPoll(this)"
                                 data-terminal="{{ row.ID_TERMINAL_GETNET }}" 
                                 data-sucursal="{{ row.ID_SUCURSAL_GETNET }}" 
-                                data-serial="{{ row.SERIAL }}">
+                                data-serial="{{ row.SERIAL }}"
+                                title="Envíar ping a la terminal " >
                                 <i class="fas fa-sync-alt"></i>
                             </button>
                         </td>
                         <td>
-                            <button class="btn-circle" onclick="realizarDetalleVenta(this, true)" 
+                            <button class="btn-circle" onclick="realizarDetalleVenta(this)" 
                                 data-terminal="{{ row.ID_TERMINAL_GETNET }}" 
                                 data-sucursal="{{ row.ID_SUCURSAL_GETNET }}" 
                                 data-serial="{{ row.SERIAL }}" 
-                                data-custom-id="{{ row.ID }}">
+                                data-custom-id="{{ row.ID }}"
+                                title="Realizar la impresión del detalle de ventas">
                                 <i class="fas fa-receipt"></i>
                             </button>
                         </td>
@@ -112,7 +165,8 @@
                                 data-sucursal="{{ row.ID_SUCURSAL_GETNET }}" 
                                 data-serial="{{ row.SERIAL }}" 
                                 data-custom-id="{{ row.ID }}" 
-                                data-operation-id="11">
+                                data-operation-id="11"
+                                title="Realizar la impresión de la última venta">
                                 <i class="fas fa-clock"></i>
                             </button>
                         </td>
@@ -122,7 +176,20 @@
         </div>
     </div>
     <div id="tooltip" class="tooltip-box"></div>
+
+
     <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
-    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>    
+
+    <div id="detalleVentaModal" style="display: none;" class="modal-overlay" onclick="cerrarModalDetalleVenta(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <span class="close-button" onclick="cerrarModalDetalleVenta()">&times;</span>
+            <div id="detalleVentaResultado">Cargando detalle de venta...</div>
+            <button id="btnImprimirDetalle" class="button shadow-effect primary">Imprimir</button>
+        </div>
+    </div>
+
+
 </body>
 </html>
+{% endblock %}

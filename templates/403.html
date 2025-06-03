@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Acceso Denegado{% endblock %}
+{% block content %}
+<div class="text-center mt-5">
+    <h1 class="display-4 text-danger">403</h1>
+    <p class="lead">No tienes permisos para acceder a esta página.</p>
+    <a href="{% if current_user.rol == 'admin' %}{{ url_for('index') }}{% else %}{{ url_for('index_limitado') }}{% endif %}" class="btn btn-primary">Volver al inicio</a>
+</div>  
+{% endblock %}

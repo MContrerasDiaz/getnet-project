@@ -1,14 +1,209 @@
 import pyodbc
 import pandas as pd
-from flask import Flask, render_template, request, redirect, url_for, jsonify, render_template_string
+from flask import Flask, flash, render_template, request, redirect, url_for, jsonify, render_template_string
 from dotenv import load_dotenv
 import requests
 import os
 from urllib3.exceptions import InsecureRequestWarning
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
+from flask import abort
+
 
 load_dotenv()
 
 app = Flask(__name__)
+
+#Configurar el Login Manager
+app.secret_key = os.getenv("SECRET_KEY", "clave_segura")
+
+
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+#Configurar el Login Manager fin
+
+
+
+
+
+#MODELO DE USUARIO
+class Usuario(UserMixin):
+    def __init__(self, id, nombre, correo, clave, rol):
+        self.id = id
+        self.nombre = nombre
+        self.correo = correo
+        self.clave = clave
+        self.rol = rol
+    
+    def get_id(self):
+        return str(self.id)
+    
+def rol_requerido(rol):
+    def decorador(f):
+        @wraps(f)
+        def decorador_interno(*args, **kwargs):
+            if not current_user.is_authenticated or current_user.rol != rol:
+                abort(403)  # Forbidden
+            return f(*args, **kwargs)
+        return decorador_interno
+    return decorador
+
+@app.errorhandler(403)
+def error_403(e):
+    return render_template("403.html"), 403
+
+def registrar_log(accion):
+    if current_user.is_authenticated:
+        try:
+            with pyodbc.connect(connection_string) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO T_GETNET_LOG_ACCION (USUARIO_ID, USUARIO_CORREO, ACCION)
+                    VALUES (?, ?, ?)
+                """, current_user.id, current_user.correo, accion)
+                conn.commit()
+        except Exception as e:
+            print(f"[ERROR LOG] {e}")
+
+@login_manager.user_loader
+def load_user(user_id):
+    try:
+        with pyodbc.connect(connection_string) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT ID, NOMBRE, CORREO, CLAVE, ROL FROM T_GETNET_ACC_USUARIO WHERE ID = ?", user_id)
+            row = cursor.fetchone()
+            if row:
+                return Usuario(*row)
+    except Exception as e:
+        print("Error al cargar usuario:", e)
+    return None
+
+
+#MODELO DE USUARIO FIN
+
+#RUTA LOGIN
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        correo = request.form['correo']
+        clave = request.form['clave']
+        try:
+            with pyodbc.connect(connection_string) as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT ID, NOMBRE, CORREO, CLAVE, ROL FROM T_GETNET_ACC_USUARIO WHERE CORREO = ?", correo)
+                row = cursor.fetchone()
+
+                if row and check_password_hash(row[3], clave):
+                    user = Usuario(*row)
+                    login_user(user)
+                    if user.rol == 'admin':
+                        return redirect(url_for('index'))
+                    else:
+                        return redirect(url_for('index_limitado'))
+                else:
+                    return "Correo o contraseña incorrecta"
+        except Exception as e:
+            return f"Error: {e}"
+
+    return render_template("login.html")
+
+
+
+#RUTA LOGIN FIN
+
+#RUTA LOGOUT
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('login'))
+
+#RUTA LOGOUT FIN
+
+#RUTA REGISTRAR
+
+@app.route('/registrar_usuario', methods=['GET', 'POST'])
+@login_required
+@rol_requerido('admin')
+def registrar_usuario():
+    if request.method == 'POST':
+        nombre = request.form['nombre']
+        correo = request.form['correo']
+        clave_plana = request.form['clave']
+        rol = request.form['rol']
+
+        clave_hash = generate_password_hash(clave_plana)
+
+        try:
+            with pyodbc.connect(connection_string) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO T_GETNET_ACC_USUARIO (NOMBRE, CORREO, CLAVE, ROL)
+                    VALUES (?, ?, ?, ?)
+                """, (nombre, correo, clave_hash, rol))
+                conn.commit()
+            return redirect(url_for('index'))
+        except Exception as e:
+            return f"Error al registrar usuario: {e}"
+
+    return render_template('registrar_usuario.html')
+
+#RUTA REGISTRAR FIN
+
+#GESTOR DE USUARIOS
+@app.route('/usuarios', methods=['GET'])
+@login_required
+@rol_requerido('admin')
+def listar_usuarios():
+    try:
+        with pyodbc.connect(connection_string) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT ID, NOMBRE, CORREO, ROL FROM T_GETNET_ACC_USUARIO")
+            rows = cursor.fetchall()
+        return render_template("usuarios.html", usuarios=rows)
+    except Exception as e:
+        return f"Error al listar usuarios: {e}"
+
+@app.route('/eliminar_usuario/<int:id>', methods=['POST'])
+@login_required
+@rol_requerido('admin')
+def eliminar_usuario(id):
+    try:
+        with pyodbc.connect(connection_string) as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM T_GETNET_ACC_USUARIO WHERE ID = ?", id)
+            conn.commit()
+        flash("Usuario eliminado correctamente.", "success")
+        return redirect(url_for('listar_usuarios'))
+    except Exception as e:
+        flash(f"Error: {e}", "danger")
+        return redirect(url_for('listar_usuarios'))
+
+#GESTOR DE USUARIOS FIN
+
+#LOGS
+@app.route('/logs', methods=['GET'])
+@login_required
+@rol_requerido('admin')
+def ver_logs():
+    try:
+        with pyodbc.connect(connection_string) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT ID, USUARIO_ID, USUARIO_CORREO, ACCION, FECHA_HORA
+                FROM T_GETNET_LOG_ACCION
+                ORDER BY FECHA_HORA DESC
+            """)
+            logs = cursor.fetchall()
+        return render_template("logs.html", logs=logs)
+    except Exception as e:
+        return f"Error al obtener los logs: {e}"
+
+#LOGS FIN
+
+
 
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
@@ -17,9 +212,9 @@ client_secret = os.getenv("CLIENT_SECRET")
 base_url = os.getenv("URL")
 base_palumbo = os.getenv("AMBIENTE")
 
-print("Probando con:")
-print("CLIENT_ID:", client_id)
-print("CLIENT_SECRET:", client_secret)
+#print("Probando con:")
+#print("CLIENT_ID:", client_id)
+#print("CLIENT_SECRET:", client_secret)
 
 
 def obtener_token():
@@ -100,9 +295,9 @@ password = os.getenv("CLAVE")
 
 connection_string = f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password};TrustServerCertificate=Yes;'
 
-
-@app.route('/', methods=['GET', 'POST'])
-def index():
+@app.route('/index_limitado', methods=['GET', 'POST'])
+@login_required
+def index_limitado():
     try:
         query_main = f"""
         SELECT 
@@ -139,6 +334,8 @@ def index():
         query_dropdown_caja = f"""
         SELECT DISTINCT C.ST_DESC_CAJASUCURSAL 
         FROM {base_palumbo}.DBO.T_GEN_SUCURSAL S
+		JOIN {database}.dbo.T_GETNET_TERMINALSUCURSALES TS 
+		ON TS.IN_COD_SUCURSAL = S.IN_COD_SUCURSAL
         JOIN {base_palumbo}.DBO.T_POS_CAJASUCURSAL C
         ON C.IN_COD_SUCURSAL = S.IN_COD_SUCURSAL
         """
@@ -195,28 +392,187 @@ def index():
         cajas = df_dropdown_caja["ST_DESC_CAJASUCURSAL"].tolist()
         
         
+        # Terminales activas vs total
         query_activos = f'''
-        SELECT COUNT(IN_ESTADOTERMINAL_ACTIVA)
-        FROM {database}.DBO.T_GETNET_TERMINALSUCURSALES 
-        WHERE IN_ESTADOTERMINAL_ACTIVA = 1
+        SELECT 
+            SUM(CASE WHEN IN_ESTADOTERMINAL_ACTIVA = 1 THEN 1 ELSE 0 END) AS ACTIVAS,
+            COUNT(*) AS TOTAL
+        FROM {database}.DBO.T_GETNET_TERMINALSUCURSALES
         '''
-        with pyodbc.connect(connection_string) as connection:
-            df_activo = pd.read_sql(query_activos, connection)
 
-        terminales_activos = df_activo.iloc[0, 0]
-
-
+        # Cajas integradas vs total
         query_cajas_integradas = f'''
-        SELECT COUNT(IN_ESTADOCAJA_INTEGRADA)
-        FROM {database}.DBO.T_GETNET_TERMINALSUCURSALES 
-        WHERE IN_ESTADOCAJA_INTEGRADA = 1
+        SELECT 
+            SUM(CASE WHEN IN_ESTADOCAJA_INTEGRADA = 1 THEN 1 ELSE 0 END) AS INTEGRADAS,
+            COUNT(*) AS TOTAL
+        FROM {database}.DBO.T_GETNET_TERMINALSUCURSALES
         '''
+
+        df_activo = pd.read_sql(query_activos, connection)
+        df_cajas = pd.read_sql(query_cajas_integradas, connection)
+
+        terminales_activas = df_activo.loc[0, 'ACTIVAS']
+        terminales_total = df_activo.loc[0, 'TOTAL']
+        cajas_integradas = df_cajas.loc[0, 'INTEGRADAS']
+        cajas_total = df_cajas.loc[0, 'TOTAL']
+
+
+        return render_template(
+        'index_limitado.html',
+        table_data=table_data,
+        sucursales=sucursales,
+        cajas=cajas,
+        terminales_activas=terminales_activas,
+        terminales_total=terminales_total,
+        cajas_integradas=cajas_integradas,
+        cajas_total=cajas_total
+    )
+
+
+    except pyodbc.Error as e:
+        return f"Error al conectar a la base de datos: {e}"
+    except pd.io.sql.DatabaseError as e:
+        return f"Error al ejecutar la consulta SQL: {e}"
+    except Exception as e:
+        return f"Ocurrió un error inesperado: {e}"
+    
+    
+
+
+@app.route('/', methods=['GET', 'POST'])
+@login_required
+@rol_requerido('admin')
+def index():
+    try:
+        query_main = f"""
+        SELECT 
+        TS.IN_COD_TERMINALSUCURSALES AS ID, 
+        TS.ST_SERIAL_TERMINAL AS SERIAL,
+        S.ST_DESC_SUCURSAL AS SUCURSAL,
+        C.ST_DESC_CAJASUCURSAL AS CAJA, 
+        TS.IN_ESTADOTERMINAL_ACTIVA AS ESTADO_TERMINAL,
+        CASE WHEN TS.IN_ESTADOCAJA_INTEGRADA = 1 THEN 1 ELSE 0 END AS TERMINAL_INTEGRADO,
+        TS.IN_ESTADOCAJA_INTEGRADA AS CAJA_INTEGRADA,
+        TS.ST_COD_TERMINAL AS ID_TERMINAL_GETNET,
+        TS.ST_COD_SUCURSALASIGNACIONTERMINAL AS ID_SUCURSAL_GETNET
+        FROM {base_palumbo}.dbo.T_GEN_SUCURSAL S    
+        JOIN {database}.DBO.T_GETNET_TERMINALSUCURSALES TS 
+        ON TS.IN_COD_SUCURSAL = S.IN_COD_SUCURSAL
+        AND S.ST_DESC_SUCURSAL NOT LIKE '%(CERRADO)%'
+        AND CONVERT(INT, S.ST_CODIGO_SUCURSAL) > 300
+        AND CONVERT(INT, S.ST_CODIGO_SUCURSAL) < 900
+        JOIN {base_palumbo}.dbo.T_POS_CAJASUCURSAL C 
+        ON C.IN_COD_CAJASUCURSAL = TS.IN_COD_CAJASUCURSAL
+        
+        """
+
+        query_dropdown_sucursal = f"""
+        SELECT DISTINCT ST_DESC_SUCURSAL
+        FROM {base_palumbo}.DBO.T_GEN_SUCURSAL S
+        JOIN T_GETNET_TERMINALSUCURSALES TS 
+        ON TS.IN_COD_SUCURSAL = S.IN_COD_SUCURSAL
+        WHERE ST_DESC_SUCURSAL NOT LIKE '%(CERRADO)%'
+        AND CONVERT(INT, ST_CODIGO_SUCURSAL) > 300
+        AND CONVERT(INT, ST_CODIGO_SUCURSAL) < 900
+        """
+
+        query_dropdown_caja = f"""
+        SELECT DISTINCT C.ST_DESC_CAJASUCURSAL 
+        FROM {base_palumbo}.DBO.T_GEN_SUCURSAL S
+		JOIN {database}.dbo.T_GETNET_TERMINALSUCURSALES TS 
+		ON TS.IN_COD_SUCURSAL = S.IN_COD_SUCURSAL
+        JOIN {base_palumbo}.DBO.T_POS_CAJASUCURSAL C
+        ON C.IN_COD_SUCURSAL = S.IN_COD_SUCURSAL
+        """
+
+        if request.method == 'POST':
+            sucursal_input = request.form.get('miInput')
+            caja_input = request.form.get('miInputCaja')
+            terminal_input = request.form.get('busqueda_sucursal_terminal')
+            terminal_id_input = request.form.get('busqueda_id_terminal')
+            terminal_serial_input = request.form.get('busqueda_serial_terminal')
+            CAJA_INTEGRADA = request.form.get('miInputIntegrada')
+            terminal_integrada = request.form.get('miInputTerminalIntegrada')
+
+            if CAJA_INTEGRADA:
+                query_main += f" AND TS.IN_ESTADOCAJA_INTEGRADA IN ({CAJA_INTEGRADA})"
+            if terminal_integrada:
+                query_main += f" AND TS.IN_ESTADOCAJA_INTEGRADA IN ({terminal_integrada})"
+            if sucursal_input:
+                query_main += f" AND S.ST_DESC_SUCURSAL LIKE '%{sucursal_input}%'"
+                query_dropdown_caja += f" AND S.ST_DESC_SUCURSAL LIKE '%{sucursal_input}%'"
+            if caja_input:
+                query_main += f" AND C.ST_DESC_CAJASUCURSAL LIKE '%{caja_input}%'"
+            if terminal_input:
+                query_main += f" AND CONVERT(VARCHAR(50), TS.IN_COD_TERMINALSUCURSALES) LIKE '%{terminal_input}%'"
+            if terminal_id_input:
+                query_main += f" AND TS.ST_COD_TERMINAL LIKE '%{terminal_id_input}%'"
+            if terminal_serial_input:
+                query_main += f" AND TS.ST_SERIAL_TERMINAL LIKE '%{terminal_serial_input}%'"
+
+        query_main+= f'''ORDER BY 
+		CASE WHEN TS.IN_ESTADOCAJA_INTEGRADA = 1 AND  TS.IN_ESTADOTERMINAL_ACTIVA =1 AND TS.IN_ESTADOCAJA_INTEGRADA=1 THEN 1 ELSE 0 END DESC,		
+		ESTADO_TERMINAL DESC, TERMINAL_INTEGRADO DESC,CAJA_INTEGRADA DESC, CAJA'''
+
         with pyodbc.connect(connection_string) as connection:
-            df_cajas_integada = pd.read_sql(query_cajas_integradas, connection)
+            df_main = pd.read_sql(query_main, connection)
+            df_dropdown_sucursal = pd.read_sql(query_dropdown_sucursal, connection)
+            df_dropdown_caja = pd.read_sql(query_dropdown_caja, connection)
 
-        cajas_integradas = df_cajas_integada.iloc[0, 0]
+        table_data = []
+        for _, row in df_main.iterrows():
+            table_data.append({
+                "ID": row["ID"],
+                "SERIAL": row["SERIAL"],
+                "SUCURSAL": row["SUCURSAL"],
+                "CAJA": row["CAJA"],
+                "ESTADO_TERMINAL": 'btn-green' if row["ESTADO_TERMINAL"] == 1 else 'btn-red',
+                "TERMINAL_INTEGRADO": 'btn-green' if row["TERMINAL_INTEGRADO"] == 1 else 'btn-red',
+                "CAJA_INTEGRADA": 'btn-green' if row["CAJA_INTEGRADA"] == 1 else 'btn-red',
+                "ID_TERMINAL_GETNET": row["ID_TERMINAL_GETNET"],
+                "ID_SUCURSAL_GETNET": row["ID_SUCURSAL_GETNET"]
+            })
 
-        return render_template('index.html', table_data=table_data, sucursales=sucursales, cajas=cajas, terminales_activos=terminales_activos, cajas_integradas=cajas_integradas)
+        sucursales = df_dropdown_sucursal["ST_DESC_SUCURSAL"].tolist()
+        cajas = df_dropdown_caja["ST_DESC_CAJASUCURSAL"].tolist()
+        
+        
+        # Terminales activas vs total
+        query_activos = f'''
+        SELECT 
+            SUM(CASE WHEN IN_ESTADOTERMINAL_ACTIVA = 1 THEN 1 ELSE 0 END) AS ACTIVAS,
+            COUNT(*) AS TOTAL
+        FROM {database}.DBO.T_GETNET_TERMINALSUCURSALES
+        '''
+
+        # Cajas integradas vs total
+        query_cajas_integradas = f'''
+        SELECT 
+            SUM(CASE WHEN IN_ESTADOCAJA_INTEGRADA = 1 THEN 1 ELSE 0 END) AS INTEGRADAS,
+            COUNT(*) AS TOTAL
+        FROM {database}.DBO.T_GETNET_TERMINALSUCURSALES
+        '''
+
+        df_activo = pd.read_sql(query_activos, connection)
+        df_cajas = pd.read_sql(query_cajas_integradas, connection)
+
+        terminales_activas = df_activo.loc[0, 'ACTIVAS']
+        terminales_total = df_activo.loc[0, 'TOTAL']
+        cajas_integradas = df_cajas.loc[0, 'INTEGRADAS']
+        cajas_total = df_cajas.loc[0, 'TOTAL']
+
+
+        return render_template(
+        'index.html',
+        table_data=table_data,
+        sucursales=sucursales,
+        cajas=cajas,
+        terminales_activas=terminales_activas,
+        terminales_total=terminales_total,
+        cajas_integradas=cajas_integradas,
+        cajas_total=cajas_total
+    )
+
 
     except pyodbc.Error as e:
         return f"Error al conectar a la base de datos: {e}"
@@ -282,6 +638,8 @@ def insertar():
                 
             cursor.execute(insert_query, serial, id_terminal_getnet, id_sucursal_getnet, sucursal_code, caja_code)
             connection.commit()
+            registrar_log(f"Insertó nueva terminal con SERIAL {serial}, SUCURSAL {sucursal}, CAJA {caja}")
+
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)})
     return redirect(url_for('index'))
@@ -289,6 +647,8 @@ def insertar():
     
     
 @app.route('/insert', methods=['GET', 'POST'])
+@login_required
+@rol_requerido('admin')
 def insert():
     try:
         query_dropdown_sucursal = f"""
@@ -344,6 +704,8 @@ def insert():
 
 
 @app.route('/update', methods=['GET', 'POST'])
+@login_required
+@rol_requerido('admin')
 def update():
     try:
         query_dropdown_sucursal = f"""
@@ -473,6 +835,8 @@ def guardar():
                 try:
                     cursor.execute(update_query, serial, id_terminal_getnet, id_sucursal_getnet, sucursal_code, caja_code, id_)
                     connection.commit()
+                    registrar_log(f"Actualizó terminal ID {id_} con nuevo serial {serial}, sucursal {sucursal}, caja {caja}")
+
                 except Exception as e:
                     return jsonify({"status": "error", "message": str(e)})
                 return redirect(url_for('index'))
@@ -483,13 +847,18 @@ def guardar():
         return jsonify({"status": "error", "message": str(e)})
 
 
+
 @app.route('/eliminar', methods=['POST'])
+@login_required
+@rol_requerido('admin')
 def eliminar():
     id = request.form.get('id')
     try:
         with pyodbc.connect(connection_string) as connection:
             cursor = connection.cursor()
             cursor.execute("DELETE FROM [dbo].[T_GETNET_TERMINALSUCURSALES] WHERE [IN_COD_TERMINALSUCURSALES] = ?", id)
+            connection.commit()
+            registrar_log(f"Eliminó terminal con ID {id}")
         return redirect(url_for('index'))
     except pyodbc.Error as e:
         return f"Error al conectar a la base de datos: {e}"
@@ -505,6 +874,8 @@ def actualizar_cajas():
         query_dropdown_caja = f"""
         SELECT DISTINCT C.ST_DESC_CAJASUCURSAL 
         FROM {base_palumbo}.DBO.T_GEN_SUCURSAL S
+		JOIN {database}.dbo.T_GETNET_TERMINALSUCURSALES TS 
+		ON TS.IN_COD_SUCURSAL = S.IN_COD_SUCURSAL
         JOIN {base_palumbo}.DBO.T_POS_CAJASUCURSAL C
         ON C.IN_COD_SUCURSAL = S.IN_COD_SUCURSAL
         WHERE S.ST_DESC_SUCURSAL LIKE ?
@@ -541,6 +912,8 @@ def update_estado_terminal(id_terminal):
             update_query = 'UPDATE T_GETNET_TERMINALSUCURSALES SET IN_ESTADOTERMINAL_ACTIVA = ? WHERE IN_COD_TERMINALSUCURSALES = ?'
             cursor.execute(update_query, (new_state, id_terminal))
             connection.commit()
+            registrar_log(f"Cambió estado de terminal ID {id_terminal} a {new_state}")
+
 
         return jsonify({'success': True, 'new_state': new_state})
     except Exception as e:
@@ -562,6 +935,7 @@ def update_caja_integrada(id_terminal):
             update_query = 'UPDATE T_GETNET_TERMINALSUCURSALES SET IN_ESTADOCAJA_INTEGRADA  = ? WHERE IN_COD_TERMINALSUCURSALES = ?'
             cursor.execute(update_query, (new_state, id_terminal))
             connection.commit()
+            registrar_log(f"Cambió estado de caja integrada en terminal ID {id_terminal} a {new_state}")
 
         return jsonify({'success': True, 'new_state': new_state})
     except Exception as e:
@@ -570,6 +944,8 @@ def update_caja_integrada(id_terminal):
 
 
 @app.route('/gestor', methods=['GET', 'POST'])
+@login_required
+@rol_requerido('admin')
 def buscar_razon():
     try:
         conn = pyodbc.connect(connection_string)
