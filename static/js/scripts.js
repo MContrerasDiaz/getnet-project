@@ -11,7 +11,7 @@ function realizarPoll(button) {
     };
 
     // Estado: esperando
-    button.classList.remove('btn-gray', 'btn-green', 'btn-red');
+    button.classList.remove('btn-gray', 'btn-circle-green', 'btn-circle-red');
     button.classList.add('btn-warning');
 
     fetch('/poll_terminal', {
@@ -33,10 +33,10 @@ function realizarPoll(button) {
         let message = "";
 
         if (statusCode === 200 && body?.status === "OK") {
-            button.classList.add('btn-green');
+            button.classList.add('btn-circle-green');
             message = "OK - RESPUESTA RECIBIDA CORRECTAMENTE";
         } else {
-            button.classList.add('btn-red');
+            button.classList.add('btn-circle-red');
 
             try {
                 let parsedError = null;
@@ -88,8 +88,8 @@ function realizarPoll(button) {
 
     .catch(error => {
     console.error('Error al hacer poll:', error);
-    button.classList.remove('btn-warning', 'btn-green');
-    button.classList.add('btn-red');
+    button.classList.remove('btn-warning', 'btn-circle-green');
+    button.classList.add('btn-circle-red');
 
         const tooltip = document.getElementById("tooltip");
         tooltip.innerText = "Error de red o del servidor.";
@@ -111,7 +111,7 @@ function realizarPoll(button) {
 
 }
 
-function realizarDetalleVenta(button, print = true) {
+function realizarDetalleVenta(button, print = false) {
     const idTerminal = button.getAttribute("data-terminal");
     const idSucursal = button.getAttribute("data-sucursal");
     const serialNumber = button.getAttribute("data-serial");
@@ -122,95 +122,166 @@ function realizarDetalleVenta(button, print = true) {
         idSucursal: parseInt(idSucursal),
         serialNumber,
         command: 105,
-        printOnPos: true,
+        printOnPos: print,
         customId
     };
 
-    button.classList.remove('btn-gray', 'btn-green', 'btn-red');
-    button.classList.add('btn-warning');
+    if (print) {
+        fetch('/detalle_venta', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        return;
+    }
+
+    // Caso visualización
+    const modal = document.getElementById("detalleVentaModal");
+    const resultadoContainer = document.getElementById("detalleVentaResultado");
+
+    resultadoContainer.textContent = "Cargando...";
+    modal.style.display = "flex";
 
     fetch('/detalle_venta', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     })
-    .then(response => response.json().then(data => ({ statusCode: response.status, body: data })))
-    .then(({ statusCode, body }) => {
-        console.log("Respuesta completa del endpoint DETALLE:", JSON.stringify(body));
+    .then(res => res.json())
+    .then(data => {
+        console.log("Respuesta completa de detalle_venta:", data);
+        const resultadoContainer = document.getElementById("detalleVentaResultado"); // <- asegura que esté dentro del scope
+        const botonImprimir = document.getElementById("btnImprimirDetalle");
+        const botonJson = document.createElement("button");
+    botonJson.textContent = "Ver JSON";
+    botonJson.className = "button shadow-effect warning";
+    botonJson.style.marginLeft = "10px";
+    botonJson.onclick = function () {
+        const jsonBlob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+        const jsonUrl = URL.createObjectURL(jsonBlob);
+        const nuevaVentana = window.open();
+        nuevaVentana.document.write(`
+        <html>
+            <head>
+                <title>JSON Detalle de Venta</title>
+                <style>
+                    body {
+                        font-family: monospace;
+                        white-space: pre-wrap;
+                        padding: 20px;
+                    }
+                    textarea {
+                        width: 100%;
+                        height: 300px;
+                    }
+                    button {
+                        margin-right: 10px;
+                        padding: 8px 16px;
+                        font-size: 14px;
+                        cursor: pointer;
+                    }
+                    a {
+                        text-decoration: none;
+                        color: inherit;
+                    }
+                    a:focus {
+                        outline: none;
+                    }
+                </style>
+            </head>
+            <body>
+                <h3>JSON Crudo del Detalle</h3>
+                <textarea id="jsonArea">${JSON.stringify(data, null, 2)}</textarea>
+                <br><br>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('jsonArea').value)">Copiar</button>
+                <a href="${jsonUrl}" download="detalle_venta.txt">
+                    <button>Descargar TXT</button>
+                </a>
+            </body>
+        </html>
+        `);
 
-        const tooltip = document.getElementById("tooltip");
-        button.classList.remove('btn-warning', 'btn-gray');
+    };
+    
+    botonImprimir.parentElement.appendChild(botonJson);
 
-        let message = "";
+        const ventas = data?.data?.response?.saleDetails ?? [];
+        if (ventas.length > 0) {
 
-        if (statusCode === 200 && body?.status === "OK") {
-            button.classList.add('btn-green');
-            message = "OK - RESPUESTA RECIBIDA CORRECTAMENTE";
+
+let lineas = ventas.map(v => {
+    const monto = String(v.amount).padStart(5, ' ');
+    const ultimos = v.last4Digits;
+    const ticket = v.ticket.slice(-6);
+    return `29 ${ultimos}  $ ${monto}  00  ${ticket}  ${v.cardType}    VT`;
+}).join('\n');
+
+let totalVentas = ventas.length;
+let totalMonto = ventas.reduce((acc, v) => acc + v.amount, 0);
+
+let ticket = `
+GETNET
+DETALLE TERMINAL ${ventas[0]?.terminalId ?? '-'}
+Peluquerías Integrales
+${ventas[0]?.commerceCode ?? '-'} - ${ventas[0]?.realDate?.split(" ")[0] ?? '-'} - ${ventas[0]?.realDate?.split(" ")[1] ?? '-'}
+
+F  TARJ  MONTO  NC  C.VENT  VEND  TC  TX
+${lineas}
+
+
+TOTALES
+COMPRAS          CANTIDAD       MONTO
+CREDITO          :     0       $    0
+DEBITO           :     0       $    0
+PREPAGO          :     ${totalVentas}       $ ${totalMonto}
+CREDITO QR       :     0       $    0
+DEBITO QR        :     0       $    0
+PREPAGO QR       :     0       $    0
+TOTAL VENTAS     :     ${totalVentas}       $ ${totalMonto}
+
+
+ANULACIONES
+/DEVOLUCIONES    CANTIDAD       MONTO
+CREDITO          :     0       $    0
+DEBITO           :     0       $    0
+PREPAGO          :     0       $    0
+CREDITO QR       :     0       $    0
+DEBITO QR        :     0       $    0
+PREPAGO QR       :     0       $    0
+TOTAL            :     0       $    0
+
+PROPINA          :     0       $    0
+VUELTOS          :     0       $    0
+`;
+
+resultadoContainer.innerHTML = `<div class="ticket-container"><pre>${ticket}</pre></div>`;
+
+
         } else {
-            button.classList.add('btn-red');
-
-            try {
-                let parsedError = null;
-
-                if (typeof body?.error === 'string' && body.error.includes('{')) {
-                    const jsonStart = body.error.indexOf('{');
-                    const jsonPart = body.error.slice(jsonStart);
-                    parsedError = JSON.parse(jsonPart);
-                }
-
-                if (parsedError?.error?.details?.message) {
-                    message = parsedError.error.details.message;
-                } else if (parsedError?.error?.message) {
-                    message = parsedError.error.message;
-                } else if (body?.message) {
-                    message = body.message;
-                } else {
-                    message = "Error desconocido al ejecutar detalle de venta.";
-                }
-            } catch (e) {
-                console.warn("Error al interpretar JSON anidado (detalle):", e);
-                message = "Error al interpretar la respuesta del servidor.";
-            }
+            resultadoContainer.innerHTML = "<p>No hay información de venta disponible.</p>";
         }
 
-        tooltip.innerText = message;
-        const rect = button.getBoundingClientRect();
-        tooltip.style.left = `${rect.left + window.scrollX}px`;
-        tooltip.style.top = `${rect.top + window.scrollY - 40}px`;
-        tooltip.style.display = "block";
+    botonImprimir.onclick = function () {
+        realizarDetalleVenta(button, true);
+        imprimirVisualmenteUltimoTicket();
+    };
 
-        //setTimeout(() => {
-        //    tooltip.style.display = "none";
-        //}, 4000);
-        
-        document.addEventListener("click", (event) => {
-            if (!tooltip.contains(event.target) && event.target !== button) {
-                tooltip.style.display = "none";
-            }
-        });
+
     })
-    .catch(error => {
-        console.error('Error en detalle de venta:', error);
-        button.classList.remove('btn-warning', 'btn-green');
-        button.classList.add('btn-red');
-
-        const tooltip = document.getElementById("tooltip");
-        tooltip.innerText = "Error de red o servidor.";
-        const rect = button.getBoundingClientRect();
-        tooltip.style.left = `${rect.left + window.scrollX}px`;
-        tooltip.style.top = `${rect.top + window.scrollY - 40}px`;
-        tooltip.style.display = "block";
-
-        //setTimeout(() => {
-        //    tooltip.style.display = "none";
-        //}, 4000);
-        document.addEventListener("click", (event) => {
-            if (!tooltip.contains(event.target) && event.target !== button) {
-                tooltip.style.display = "none";
-            }
-        });
+    .catch(err => {
+        const resultadoContainer = document.getElementById("detalleVentaResultado");
+        resultadoContainer.textContent = "Error al obtener detalle de venta:\n" + err;
     });
+
 }
+
+function cerrarModalDetalleVenta(event = null) {
+    const modal = document.getElementById("detalleVentaModal");
+    if (!event || event.target.classList.contains("modal-overlay") || event.target.classList.contains("close-button")) {
+        modal.style.display = "none";
+    }
+}
+
 
 function realizarUltimaVenta(button) {
     const idTerminal = button.getAttribute("data-terminal");
@@ -229,7 +300,7 @@ function realizarUltimaVenta(button) {
         customId
     };
 
-    button.classList.remove('btn-gray', 'btn-green', 'btn-red');
+    button.classList.remove('btn-gray', 'btn-circle-green', 'btn-circle-red');
     button.classList.add('btn-warning');
 
     fetch('/ultima_venta', {
@@ -247,10 +318,10 @@ function realizarUltimaVenta(button) {
         let message = "";
 
         if (statusCode === 200 && body?.status === "OK") {
-            button.classList.add('btn-green');
+            button.classList.add('btn-circle-green');
             message = "OK - RESPUESTA RECIBIDA CORRECTAMENTE";
         } else {
-            button.classList.add('btn-red');
+            button.classList.add('btn-circle-red');
 
             try {
                 let parsedError = null;
@@ -295,7 +366,7 @@ function realizarUltimaVenta(button) {
 
     .catch(error => {
         console.error('Error en última venta:', error);
-        button.classList.remove('btn-warning', 'btn-green');
+        button.classList.remove('btn-warning', 'btn-circle-green');
         button.classList.add('btn-red');
 
         const tooltip = document.getElementById("tooltip");
@@ -319,37 +390,66 @@ function realizarUltimaVenta(button) {
 
 
 
-function filtrarOpciones(inputId, dropdownId) {
-    const input = document.getElementById(inputId);
-    const filter = input.value.toUpperCase();
-    const dropdown = document.getElementById(dropdownId);
-    const items = dropdown.getElementsByTagName("li");
-
-    for (let i = 0; i < items.length; i++) {
-        const txtValue = items[i].textContent || items[i].innerText;
-        items[i].style.display = txtValue.toUpperCase().indexOf(filter) > -1 ? "" : "none";
-    }
-    dropdown.style.display = 'block';
+function mostrarOpciones(idDropdown) {
+    document.getElementById(idDropdown).style.display = 'block';
 }
 
-    function seleccionarOpcion(inputId, valor) {
-        const input = document.getElementById(inputId);
-        input.value = valor;
+function filtrarOpciones(idInput, idDropdown) {
+    const input = document.getElementById(idInput);
+    const filter = input.value.toLowerCase();
+    const ul = document.getElementById(idDropdown);
+    const items = ul.getElementsByTagName('li');
 
-        const dropdown = document.getElementById(inputId).parentElement.querySelector('.dropdown-content');
-        dropdown.style.display = 'none';
-        
-        if (inputId === 'miInput') {
+    for (let i = 0; i < items.length; i++) {
+        let txt = items[i].textContent || items[i].innerText;
+        items[i].style.display = txt.toLowerCase().includes(filter) ? "" : "none";
+    }
+
+    ul.style.display = 'block';
+}
+
+document.addEventListener('click', function(e) {
+    document.querySelectorAll('.dropdown-content').forEach(ul => {
+        if (!ul.parentElement.contains(e.target)) {
+            ul.style.display = 'none';
+        }
+    });
+});
+
+
+function seleccionarOpcion(inputId, valor) {
+    const input = document.getElementById(inputId);
+
+    // Si es caja integrada, mostrar texto legible
+    if (inputId === 'miInputIntegrada') {
+        let texto = "";
+        if (valor === "1") texto = "Sí";
+        else if (valor === "0") texto = "No";
+        else if (valor === "0,1") texto = "Todas";
+        input.value = texto;
+        input.setAttribute("data-real-value", valor); // Guarda el valor real oculto
+    } else {
+        input.value = valor;
+    }
+
+    const dropdown = input.parentElement.querySelector('.dropdown-content');
+    dropdown.style.display = 'none';
+
+    if (inputId === 'miInput') {
         document.getElementById('miInputCaja').value = '';
     }
-        document.getElementById(inputId).value = valor;
-        realizarBusqueda();
-    }
 
-    function realizarBusqueda() {
-            console.log("Ejecutando búsqueda...");
-            document.getElementById("formulario_busqueda").submit();
-    }
+    realizarBusqueda();
+}
+
+function realizarBusqueda() {
+    const input = document.getElementById("miInputIntegrada");
+    const realValue = input.getAttribute("data-real-value");
+    if (realValue !== null) input.value = realValue;
+    console.log("Ejecutando búsqueda...");
+    document.getElementById("formulario_busqueda").submit();
+}
+            
 
     document.addEventListener('click', function(event) {
         const dropdowns = document.querySelectorAll('.dropdown-content');
@@ -456,3 +556,4 @@ function updateCajaIntegrada(button) {
         }
     });
 }
+

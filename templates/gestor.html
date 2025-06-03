@@ -1,3 +1,6 @@
+{% extends "base.html" %}
+{% block content %}
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,41 +8,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>gestor</title>
   <style>
- 
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      background-color: #f5f5f5;
-    }
-    
-    
-    .navbar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      background-color: #343a40;
-      color: #ffffff;
-      padding: 10px;
-      z-index: 1100; 
-      border-bottom: 1px solid #ddd;
-    }
-    
-    .navbar a {
-      color: #ffffff;
-      text-decoration: none;
-      font-weight: bold;
-    }
-    
-    .navbar a:hover {
-      text-decoration: underline;
-    }
-    
 
     form {
-      position: fixed;
+      --position: fixed;
       top: 40px;
       left: 0;
       width: 100%;
@@ -133,17 +104,9 @@
     }    
   </style>
 </head>
-<body>
-  
-  <nav class="navbar navbar-expand-lg navbar-light bg-light">
-    <div class="container-fluid">
-      <a class="navbar-brand" href="{{ url_for('index') }}">Inicio</a>
-    </div>
-  </nav>
-  
+<body> 
 
   <form method="POST" action="{{ url_for('agregar_razon') }}">
-    
       <div>
           <label for="nuevo_razon">Razón:</label>
           <input type="text" id="nuevo_razon" name="nuevo_razon" placeholder="Escribe la razón" required>
@@ -155,7 +118,8 @@
       <button type="submit">Agregar</button>
   </form>
 
-  <div class="container">
+  <br>
+  
     <h1>Listado de Razones</h1>
     <div class="table-responsive table-container">
         <table class="table table-striped">
@@ -177,7 +141,7 @@
             </tbody>
         </table>
     </div>
-  </div>
 
 </body>
 </html>
+{% endblock %}

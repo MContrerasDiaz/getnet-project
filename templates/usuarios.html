@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Gestión de Usuarios{% endblock %}
+{% block content %}
+{% if current_user.is_authenticated %}
+    <h2>Usuarios Registrados</h2>
+
+    <table class="table mt-4">
+        <thead class="table-dark">
+            <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Correo</th>
+                <th>Rol</th>
+                <th>Acción</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in usuarios %}
+            <tr>
+                <td>{{ u.ID }}</td>
+                <td>{{ u.NOMBRE }}</td>
+                <td>{{ u.CORREO }}</td>
+                <td>{{ u.ROL }}</td>
+                <td>
+                    {% if u.ID != current_user.id %}
+                        <form method="POST" action="{{ url_for('eliminar_usuario', id=u.ID) }}"
+                            onsubmit="return confirm('¿Eliminar a {{ u.NOMBRE }}?');">
+                            <button class="btn btn-danger btn-sm">Eliminar</button>
+                        </form>
+                    {% else %}
+                        <span class="text-muted">Tú mismo</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p class="text-danger">Debes iniciar sesión para ver esta página.</p>
+{% endif %}
+
+{% endblock %}
